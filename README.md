@@ -12,6 +12,13 @@ you could possibly want!
 I used MSVC 8.00c (still available to MSDN subscribers), I believe it's the
 last version of MSVC that could target DOS.
 
+In case you're wondering, DJGPP (the GCC port to DOS) can only produce 32-bit
+[DPMI](https://en.wikipedia.org/wiki/DOS_Protected_Mode_Interface) code, but
+123 is a true 16-bit real mode application. It *might* be possible to switch in
+and out of dpmi mode with a small stub, but 123 uses a lot of memory management
+tricks and frankly intermixing the two seems really hard. I think it's a better
+solution to stay in real mode.
+
 It almost works, but I haven't fully implemented all the API, so if you do
 something unusual it might trap. It also has some debugging code that logs
 all the calls, which makes it really slow.
