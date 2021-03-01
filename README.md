@@ -24,11 +24,20 @@ about it!
 
 Future ideas:
 
-    - A FILE driver that adds native support for XLS, or ODT?
-    - libcaca support so that text mode graphs work?
-    - More modern @functions?
+- A FILE driver that adds native support for XLS, or ODT?
+- libcaca support so that text mode graphs work?
+- More modern @functions?
 
 I have some development notes available
 [here](https://lock.cmpxchg8b.com/lotus123.html) and
 [here](https://lock.cmpxchg8b.com/lotusinternals.html)
 
+# Building
+
+I wrote the code on Linux, and then used dosemu to run the old toolchain.
+
+For example, you can run tasm from a Makefile like `dosemu -dumb -E "tasm ..."`
+
+The `-dumb` (i.e. dumb terminal) option makes old DOS tools work like UNIX
+tools. This requires you have your autoexec.bat setup so that `%PATH%` works,
+but is very convenient for development - even exit codes work!
