@@ -16,15 +16,10 @@ int openlog(const char *name)
 {
     closelog();
 
-    if (name == NULL)
-        return 1;
-
-#if 0
     if (_dos_creat(name, _A_NORMAL, &logfile) != 0) {
         logmsg("_dos_creat failed to open logfile %s", name);
         return 1;
     }
-#endif
 
     return 0;
 }

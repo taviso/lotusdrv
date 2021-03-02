@@ -3,8 +3,8 @@ ASFLAGS=/m3 /q /z /w0
 #CPPFLAGS=/DNDEBUG
 CPPFLAGS=
 WARNLEVEL=4
-CFLAGS=/AL /nologo /NDAAA /O1i /G3 /Gs /Gc /Zi /FPi87 /Zp1 /Zl /Gf /f- /W$(WARNLEVEL) /WX
-LDFLAGS=/b /map:full /nologo /info /onerror:noexe /nod /noe /packd /packc
+CFLAGS=/AL /nologo /NDAAA /Od /G3 /Gs /Gc /Zi /FPi87 /Zp1 /Zl /Gf /f- /W$(WARNLEVEL) /WX
+LDFLAGS=/b /map:full /nologo /onerror:noexe /nod /noe /packc
 LDLIBS=LLIBC7
 EFLAGS=/verbose /nologo
 
