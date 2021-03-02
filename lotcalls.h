@@ -51,7 +51,7 @@ struct LOTUSFUNCS
   __int32 field_98;
   __int32 field_9C;
   __int32 field_A0;
-  void (__pascal __far far *MaybeGetVramPtrs)(void far * far *, int unknown, int size);
+  unsigned (__pascal __far far *GetDescriptor)(unsigned far *selector, int base, int limit);
   __int32 field_A8;
   __int32 field_AC;
   __int32 field_B0;
@@ -65,11 +65,16 @@ struct LOTUSFUNCS
   __int32 field_D0;
   __int32 field_D4;
   __int32 field_D8;
-  void (__pascal __far far *MaybeFreeVramPtrs)(int seg);
+  void (__pascal __far far *FreeDescriptor)(int seg);
   __int32 field_E0;
   __int32 field_E4;
 };
 
 extern struct LOTUSFUNCS far *callbacks;
+
+extern void __pascal ClearRegionForeground(int cols,
+                                           int lines,
+                                           unsigned char attrs);
+extern void __pascal MoveCursor(int col, int line);
 
 #endif

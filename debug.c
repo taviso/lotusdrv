@@ -16,16 +16,23 @@ int openlog(const char *name)
 {
     closelog();
 
+    if (name == NULL)
+        return 1;
+
+#if 0
     if (_dos_creat(name, _A_NORMAL, &logfile) != 0) {
         logmsg("_dos_creat failed to open logfile %s", name);
         return 1;
     }
+#endif
 
     return 0;
 }
 
 int closelog(void)
 {
+
+    // If we're not logging, just return.
     if (logfile == -1) {
         return 1;
     }
@@ -42,6 +49,10 @@ int logstr(const char *fmt, ...)
     va_list ap;
     unsigned len;
     char line[128];
+
+    // If we're not logging, just return.
+    if (logfile == -1)
+        return 1;
 
     va_start(ap, fmt);
 
@@ -61,6 +72,10 @@ int logmsg(const char *fmt, ...)
     unsigned len;
     char line[128];
 
+    // If we're not logging, just return.
+    if (logfile == -1)
+        return 1;
+
     va_start(ap, fmt);
 
     portable_vsnprintf(line, sizeof(line), fmt, ap);
@@ -76,6 +91,11 @@ int logmsg(const char *fmt, ...)
 void loghex(const void far *ptr, int buflen) {
     const unsigned char *buf = ptr;
     int i, j;
+
+    // If we're not logging, just return.
+    if (logfile == -1)
+        return;
+
     for (i = 0; i < buflen; i += 16) {
         logstr("%06x: ", i);
         for (j = 0; j < 16; j++)

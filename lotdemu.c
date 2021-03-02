@@ -16,17 +16,33 @@
 #include "lmbcs.h"
 #include "attr.h"
 
+// The current cursor position.
 static int curx;
 static int cury;
-static unsigned char far * const framebuffer = MK_FP(0xb800, 0x0000);
+
+// LDT entries we need to release on exit.
+unsigned fbseg = CGA_FRAMEBUF;
+unsigned vbseg = BIOS_DATA_AREA;
+
+// This will point into the CGA framebuffer.
+static unsigned char far * framebuffer;
+
+// These two pointers reference the BDA (BIOS Data Area)
+// The number of rows will be 1 less than the actual rows. Look, I didn't
+// invent it.
+static unsigned int far * bdcols;
+static unsigned char far * bdrows;
 
 static unsigned char blanks[MAX_COLS];
 
+// This will point at fixed (not vmr) memory. vmrs are 123's
+// abstraction of XMS/EMS handles, they need to be mapped before
+// you can touch them.
 static unsigned char far *attrmap;
 
 static struct DISPLAYINFO dpinfo = {
-    246,    // num_text_cols
-    30,     // num_text_rows
+    80,     // num_text_cols
+    25,     // num_text_rows
     true,   // graphics
     true,   // full_screen_graph
     1,      // hpu_per_col
@@ -38,12 +54,13 @@ static struct DISPLAYINFO dpinfo = {
     true,   // iscolor
 };
 
+// I think an mu must be a "movement unit"?
 static struct DEVDATA devdata = {
   1,        // ShowMeFlag
   200,      // RasterHeight
   6,        // AspectX
   5,        // AspectY
-  4,        // RHmusPerTHmu
+  4,        // RHmusPerTHmu 
   1,        // RHmuPerGHmus
   8,        // RVmusPerTVmu
   1,        // RVmuPerGVmus
@@ -136,6 +153,28 @@ int __pascal DriverInit(void *drvapi, void *vbdptr, char *cfgname, char deflmbcs
     // Create a line of blanks for quickly clearing a row.
     memset(blanks, ' ', sizeof blanks);
 
+    // Request Bios Data Area access.
+    callbacks->GetDescriptor(&vbseg, 0, 0x100);
+
+    traceint(vbseg);
+
+    // See https://stanislavs.org/helppc/bios_data_area.html
+    bdrows = MK_FP(vbseg, 0x84);
+    bdcols = MK_FP(vbseg, 0x4A);
+
+    traceint(*bdrows);
+    traceint(*bdcols);
+
+    dpinfo.num_text_cols = *bdcols;
+    dpinfo.num_text_rows = *bdrows + 1;
+
+    // Request an LDT for framebuffer access.
+    callbacks->GetDescriptor(&fbseg, 0, dpinfo.num_text_cols * dpinfo.num_text_rows * 2);
+
+    traceint(fbseg);
+
+    framebuffer = MK_FP(fbseg, 0);
+
     // Setup the CGA <=> 123 attribute map.
     attrmap = callbacks->Allocate(dpinfo.num_text_cols * dpinfo.num_text_rows, 0);
 
@@ -150,6 +189,7 @@ int __pascal DriverInit(void *drvapi, void *vbdptr, char *cfgname, char deflmbcs
     // Initialize to white on black.
     memset(attrmap, 0, dpinfo.num_text_cols * dpinfo.num_text_rows);
 
+
     // Parse out configuration bundle.
     ParseConfig(vbdptr);
 
@@ -161,7 +201,21 @@ int __pascal DriverTerminate()
 {
     traceent("DriverTerminate");
 
+    // Clean up the screen.
+    MoveCursor(0, 0);
+
+    ClearRegionForeground(dpinfo.num_text_cols,
+                          dpinfo.num_text_rows,
+                          0);
+
+    // Free our attribute map.
     callbacks->Free(attrmap, 0, dpinfo.num_text_cols * dpinfo.num_text_rows);
+
+    // Release any segment descriptors.
+    callbacks->FreeDescriptor(fbseg);
+    callbacks->FreeDescriptor(vbseg);
+
+    // If we were logging, close it.
     closelog();
 
     return 0;
@@ -186,15 +240,12 @@ void __pascal MoveCursor(int col, int line)
     traceint(col);
     traceint(line);
 
-    if (col < 0) {
-        col += dpinfo.num_text_cols;
-    }
-
     curx = col;
     cury = line;
 
     return;
 }
+
 
 // Mask is the bits that I'm allowed to change.
 int WriteStringToFramebuffer(unsigned char far *str,
@@ -433,14 +484,52 @@ void __pascal ClearRegionForegroundKeepBg(int cols, int lines)
     return;
 }
 
-void __pascal BlockRegionCopy(int topx, int topy, int botx, int boty)
+
+// Move a rectangular block to the current cursor.
+//
+// So we have
+//
+//      topx,topy
+//          +---------------------------+
+//          |                           |
+//          |                           |
+//          |                           |
+//          +---------------------------+
+//                                  botx,boty
+//
+// This should be copied so that topx,topy is at curx,cury.
+//
+void __pascal BlockRegionCopy(int botx, int boty, int topx, int topy)
 {
+    unsigned char far *srcline;
+    unsigned char far *dstline;
+    int nlines;
+    int ncols;
+    int i;
+
     traceent("BlockRegionCopy");
     traceint(topx);
     traceint(topy);
     traceint(botx);
     traceint(boty);
-    __debugbreak();
+    traceint(curx);
+    traceint(cury);
+
+    // The number of lines in the rectangle we're moving.
+    nlines = boty - topy;
+
+    // The number of columns.
+    ncols = botx - topx;
+
+    // What do I do with attributes? I'm just copying them, I dunno.
+    for (i = 0; i < nlines; i++) {
+        srcline = (framebuffer + (topy + i) * dpinfo.num_text_cols * 2);
+        dstline = (framebuffer + (cury + i) * dpinfo.num_text_cols * 2);
+
+        memmove(&dstline[curx], &srcline[curx], ncols * 2);
+    }
+
+    return;
 }
 
 int __pascal CalcSizeTranslatedString(int argstrlen, char far *argstr)

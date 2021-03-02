@@ -32,4 +32,10 @@
 // exceed 256, because that's only an 8bit register.
 #define MAX_COLS 256
 
+// The selectors for the BIOS Data Area and CGA Framebuffer. We
+// can't access these directly, we need to request 123 installs
+// an LDT entry for us.
+#define BIOS_DATA_AREA 0x0040
+#define CGA_FRAMEBUF 0xb800
+
 #endif
