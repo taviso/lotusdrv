@@ -9,6 +9,8 @@ you could possibly want!
 
 ![screenshot](screenshot.png)
 
+> Note: This driver is intended for DOSEMU2 in *-term* mode, i.e. running in a terminal.
+
 I used MSVC 8.00c (still available to MSDN subscribers), I believe it's the
 last version of MSVC that could target DOS.
 
@@ -22,8 +24,6 @@ solution to stay in real mode.
 This driver almost works, but I haven't fully implemented all the API, so if you do
 something unusual it might trap. It might take a few more weekends to be totally
 stable! At the moment, it also has some debugging code that logs all the calls,
-which makes it really slow.
-
 I'll remove that when it's ready for other people to use.
 
 I highly doubt anybody else will want to use this, but if you are excited
