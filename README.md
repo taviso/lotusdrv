@@ -42,6 +42,11 @@ I have some development notes available
 
 # Building
 
+> If you just want a binary to try, check out the Releases section.
+
+Note that this code isn't really ready for non-developer use yet, but you're
+welcome to try it out and tell me about any visual glitches or crashes!
+
 I wrote the code on Linux, and then used dosemu to run the old toolchain.
 
 For example, you can run tasm from a Makefile like `dosemu -dumb -E "tasm ..."`
@@ -49,3 +54,4 @@ For example, you can run tasm from a Makefile like `dosemu -dumb -E "tasm ..."`
 The `-dumb` (i.e. dumb terminal) option makes old DOS tools work like UNIX
 tools. This requires you have your autoexec.bat setup so that `%PATH%` works,
 but is very convenient for development - even exit codes work!
+
