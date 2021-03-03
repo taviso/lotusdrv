@@ -21,8 +21,8 @@ and out of dpmi mode with a small stub, but 123 uses a lot of memory management
 tricks and frankly intermixing the two seems really hard. I think it's a better
 solution to stay in real mode.
 
-This driver almost works, but I haven't fully implemented all the API, so if you do
-something unusual it might trap. It might take a few more weekends to be totally
+This driver basically works, but I haven't fully implemented all the API, so if you
+do something unusual it might trap. It might take a few more weekends to be totally
 stable! At the moment, it also has some debugging code that logs all the calls,
 I'll remove that when it's ready for other people to use.
 
@@ -37,8 +37,7 @@ Future ideas:
 - More modern @functions?
 
 I have some development notes available
-[here](https://lock.cmpxchg8b.com/lotus123.html) and
-[here](https://lock.cmpxchg8b.com/lotusinternals.html)
+[here](https://lock.cmpxchg8b.com/lotus123.html).
 
 # Building
 
