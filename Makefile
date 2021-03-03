@@ -4,7 +4,7 @@ ASFLAGS=/m3 /q /z /w0
 CPPFLAGS=
 WARNLEVEL=4
 CFLAGS=/AL /nologo /NDAAA /Od /G3 /Gs /Gc /Zi /FPi87 /Zp1 /Zl /Gf /f- /W$(WARNLEVEL) /WX
-LDFLAGS=/b /map:full /nologo /onerror:noexe /nod /noe /packc
+LDFLAGS=/b /nologo /onerror:noexe /nod /noe
 LDLIBS=LLIBC7
 EFLAGS=/verbose /nologo
 

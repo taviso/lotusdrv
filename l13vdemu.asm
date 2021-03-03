@@ -79,10 +79,4 @@ __nullcheck proc far
         int     3
 __nullcheck endp
 
-global __fptrap: proc
-__fptrap proc far
-        mov     ax, 4343h
-        int     3
-__fptrap endp
-
 end start

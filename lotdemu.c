@@ -33,6 +33,15 @@ static unsigned char far * framebuffer;
 static unsigned int far * bdcols;
 static unsigned char far * bdrows;
 
+
+// There is an "optimized" LMBCS encoding that skips the group byte
+// and just uses a default, and 123 tells us what the default should
+// be at startup.
+static unsigned char lmbcsgroup;
+
+// A handle returned when registering DEVDATA.
+static unsigned devdatahdl;
+
 static unsigned char blanks[MAX_COLS];
 
 // This will point at fixed (not vmr) memory. vmrs are 123's
@@ -60,7 +69,7 @@ static struct DEVDATA devdata = {
   200,      // RasterHeight
   6,        // AspectX
   5,        // AspectY
-  4,        // RHmusPerTHmu 
+  4,        // RHmusPerTHmu
   1,        // RHmuPerGHmus
   8,        // RVmusPerTVmu
   1,        // RVmuPerGVmus
@@ -111,7 +120,6 @@ void __pascal GetDisplayInfo(struct DISPLAYINFO far *dspinfo)
     traceent("GetDisplayInfo");
     traceptr(dspinfo);
 
-    //callbacks->MapMemVmr(&dpinfo, 1);
     memcpy(dspinfo, &dpinfo, sizeof dpinfo);
 
     tracebuf(dspinfo, sizeof dpinfo);
@@ -121,24 +129,30 @@ void __pascal GetDisplayInfo(struct DISPLAYINFO far *dspinfo)
 
 int RegisterDevdata()
 {
-    int result = 0;
-    int retcode;
+    int result;
+    void *destptr;
 
     trace("registering DEVDATA");
 
     tracebuf(&devdata, sizeof devdata);
-    traceint(devdata.ShowMeFlag);
 
-    retcode = callbacks->RegisterDevdataStruct(&devdata, &result);
+    // Allocate a VMR buffer to give to 123.
+    destptr = callbacks->AllocMem(0x27, sizeof devdata, 1);
 
-    traceint(retcode);
+    // Copy out buffer over.
+    memcpy(destptr, &devdata, sizeof devdata);
+
+    // Register it, we release this handle in our DriverTerminate().
+    devdatahdl = callbacks->RegisterDevdataStruct(destptr, &result);
+
+    traceint(devdatahdl);
     traceint(result);
     return 0;
 }
 
 int __pascal DriverInit(void *drvapi, void *vbdptr, char *cfgname, char deflmbcsgrp)
 {
-    openlog("H:\\DEBUG.LOG");
+    //openlog("H:\\DEBUG.LOG");
     traceent("DriverInit");
     traceptr(drvapi);
     traceptr(vbdptr);
@@ -149,6 +163,9 @@ int __pascal DriverInit(void *drvapi, void *vbdptr, char *cfgname, char deflmbcs
     callbacks = drvapi;
 
     tracebuf(callbacks, sizeof *callbacks);
+
+    // Record the default lmbcs group
+    lmbcsgroup = deflmbcsgrp;
 
     // Create a line of blanks for quickly clearing a row.
     memset(blanks, ' ', sizeof blanks);
@@ -189,11 +206,15 @@ int __pascal DriverInit(void *drvapi, void *vbdptr, char *cfgname, char deflmbcs
     // Initialize to white on black.
     memset(attrmap, 0, dpinfo.num_text_cols * dpinfo.num_text_rows);
 
-
     // Parse out configuration bundle.
     ParseConfig(vbdptr);
 
     RegisterDevdata();
+
+    // We don't really parse our VBD yet, but just for future usage.
+    callbacks->MapMemVmr(vbdptr, 0);
+    callbacks->LoadVmr(0);
+
     return 0;
 }
 
@@ -214,6 +235,9 @@ int __pascal DriverTerminate()
     // Release any segment descriptors.
     callbacks->FreeDescriptor(fbseg);
     callbacks->FreeDescriptor(vbseg);
+
+    // Release DEVDATA
+    callbacks->UnregisterDevdata(devdatahdl);
 
     // If we were logging, close it.
     closelog();
@@ -249,13 +273,13 @@ void __pascal MoveCursor(int col, int line)
 
 // Mask is the bits that I'm allowed to change.
 int WriteStringToFramebuffer(unsigned char far *str,
-                             int len,
+                             unsigned len,
                              unsigned char attrs,
                              unsigned char mask)
 {
     unsigned char far *line;
     unsigned char far *attr;
-    int i;
+    unsigned i;
 
     trace("WriteStringToFramebuffer");
     tracestrlen(str, len);
@@ -323,15 +347,12 @@ int WriteStringToFramebuffer(unsigned char far *str,
 
         // Advance cursor position.
         curx++;
-
-        curx %= dpinfo.num_text_cols;
-        cury += curx == 0;
     }
 
     return curx;
 }
 
-int __pascal WriteLmbcsStringWithAttributes(int byteslen,
+int __pascal WriteLmbcsStringWithAttributes(unsigned byteslen,
                                             unsigned char far *lmbcsptr,
                                             unsigned char attrs)
 {
@@ -343,7 +364,7 @@ int __pascal WriteLmbcsStringWithAttributes(int byteslen,
     tracestrlen(lmbcsptr, byteslen);
     traceval("%03ho", attrs);
 
-    result = translate_lmbcs(lmbcsptr, dest, sizeof dest, byteslen, 1);
+    result = translate_lmbcs(lmbcsptr, dest, sizeof dest, byteslen, lmbcsgroup);
 
     WriteStringToFramebuffer(dest, result, MKFG(attrs), ATTR_FG);
 
@@ -352,11 +373,11 @@ int __pascal WriteLmbcsStringWithAttributes(int byteslen,
     return result;
 }
 
-int __pascal WritePaddedLmbcsStringWithAttributes(int byteslen,
+int __pascal WritePaddedLmbcsStringWithAttributes(unsigned byteslen,
                                                   char far *lmbcsptr,
                                                   unsigned char attrs,
-                                                  int startpad,
-                                                  int endpad)
+                                                  unsigned startpad,
+                                                  unsigned endpad)
 {
     unsigned char dest[MAX_COLS];
     int result;
@@ -367,13 +388,13 @@ int __pascal WritePaddedLmbcsStringWithAttributes(int byteslen,
     traceint(startpad);
     traceint(endpad);
 
-    if (endpad < 0) {
-        endpad += dpinfo.num_text_cols;
-    }
-
     memset(dest, ' ', sizeof dest);
 
-    result = translate_lmbcs(lmbcsptr, dest + startpad, sizeof(dest) - startpad, byteslen, 1);
+    result = translate_lmbcs(lmbcsptr,
+                             dest + startpad,
+                             sizeof(dest) - startpad,
+                             byteslen,
+                             lmbcsgroup);
 
     traceint(result);
 
@@ -395,9 +416,9 @@ int __pascal WritePaddedLmbcsStringWithAttributes(int byteslen,
 //
 // Does not appear to change current cursor position.
 
-void __pascal SetRegionBgAttributes(int cols, int lines, char attrs)
+void __pascal SetRegionBgAttributes(unsigned cols, unsigned lines, char attrs)
 {
-    int y;
+    unsigned y;
     int origx;
     int origy;
     traceent("SetRegionBgAttributes");
@@ -425,13 +446,13 @@ void __pascal SetRegionBgAttributes(int cols, int lines, char attrs)
     return;
 }
 
-void __pascal ClearRegionForeground(int cols,
-                                    int lines,
+void __pascal ClearRegionForeground(unsigned cols,
+                                    unsigned lines,
                                     unsigned char attrs)
 {
-    int y;
-    int origx;
-    int origy;
+    unsigned y;
+    unsigned origx;
+    unsigned origy;
     traceent("ClearRegionForeground");
 
     traceint(cols);
@@ -456,11 +477,11 @@ void __pascal ClearRegionForeground(int cols,
     return;
 }
 
-void __pascal ClearRegionForegroundKeepBg(int cols, int lines)
+void __pascal ClearRegionForegroundKeepBg(unsigned cols, unsigned lines)
 {
-    int y;
-    int origx;
-    int origy;
+    unsigned y;
+    unsigned origx;
+    unsigned origy;
 
     traceent("ClearRegionForegroundKeepBg");
 
@@ -484,50 +505,61 @@ void __pascal ClearRegionForegroundKeepBg(int cols, int lines)
     return;
 }
 
+// Just for debugging purposes.
+static void DrawSquare(int topx, int topy, int bottomx, int bottomy)
+{
+    unsigned char line[MAX_COLS];
+    unsigned height;
+    unsigned width;
+    unsigned i;
 
-// Move a rectangular block to the current cursor.
+    height = bottomy - topy;
+    width  = bottomx - topx;
+
+    memset(line, '#', sizeof line);
+
+    MoveCursor(topx, topy);
+    WriteStringToFramebuffer(line, width, 7, ATTR_ALL);
+
+    MoveCursor(topx, bottomy);
+    WriteStringToFramebuffer(line, width, 7, ATTR_ALL);
+
+    for (i = 0; i < height; i++) {
+        MoveCursor(topx, topy + i);
+        WriteStringToFramebuffer(line, 1, 7, ATTR_ALL);
+        MoveCursor(topx + width, topy + i);
+        WriteStringToFramebuffer(line, 1, 7, ATTR_ALL);
+    }
+
+    return;
+}
+
+// Move a rectangular block from the current cursor.
 //
-// So we have
-//
-//      topx,topy
-//          +---------------------------+
-//          |                           |
-//          |                           |
-//          |                           |
-//          +---------------------------+
-//                                  botx,boty
-//
-// This should be copied so that topx,topy is at curx,cury.
-//
-void __pascal BlockRegionCopy(int botx, int boty, int topx, int topy)
+void __pascal BlockRegionCopy(int width, int height, int dstx, int dsty)
 {
     unsigned char far *srcline;
     unsigned char far *dstline;
-    int nlines;
-    int ncols;
     int i;
 
     traceent("BlockRegionCopy");
-    traceint(topx);
-    traceint(topy);
-    traceint(botx);
-    traceint(boty);
+    traceint(width);
+    traceint(height);
+    traceint(dstx);
+    traceint(dsty);
     traceint(curx);
     traceint(cury);
 
-    // The number of lines in the rectangle we're moving.
-    nlines = boty - topy;
-
-    // The number of columns.
-    ncols = botx - topx;
-
     // What do I do with attributes? I'm just copying them, I dunno.
-    for (i = 0; i < nlines; i++) {
-        srcline = (framebuffer + (topy + i) * dpinfo.num_text_cols * 2);
-        dstline = (framebuffer + (cury + i) * dpinfo.num_text_cols * 2);
+    for (i = 0; i < height; i++) {
+        srcline = (framebuffer + (cury + i) * dpinfo.num_text_cols * 2);
+        dstline = (framebuffer + (dsty + i) * dpinfo.num_text_cols * 2);
 
-        memmove(&dstline[curx], &srcline[curx], ncols * 2);
+        memmove(&dstline[dstx * 2], &srcline[curx * 2], width * 2);
     }
+
+    // I can't get this damn thing aligned properly >:(
+    #include "padding.h"
 
     return;
 }
@@ -539,7 +571,7 @@ int __pascal CalcSizeTranslatedString(int argstrlen, char far *argstr)
     tracestrlen(argstr, argstrlen);
     traceptr(argstr);
 
-    result = translate_lmbcs(argstr, NULL, 0, argstrlen, 1);
+    result = translate_lmbcs(argstr, NULL, 0, argstrlen, lmbcsgroup);
 
     traceint(result);
     return result;
@@ -562,7 +594,7 @@ int __pascal FitTranslatedString(int strarglen,
         ncols += dpinfo.num_text_cols;
     }
 
-    result = translate_lmbcs(strarg, NULL, 0, strarglen, 1);
+    result = translate_lmbcs(strarg, NULL, 0, strarglen, lmbcsgroup);
 
     traceint(result);
 

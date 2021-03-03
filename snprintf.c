@@ -409,10 +409,12 @@ int portable_vsnprintf(char *str, size_t str_m, const char *fmt, va_list ap);
 
 /* declarations */
 
+#if 0
 static char credits[] = "\n\
 @(#)snprintf.c, v2.2: Mark Martinec, <mark.martinec@ijs.si>\n\
 @(#)snprintf.c, v2.2: Copyright 1999, Mark Martinec. Frontier Artistic License applies.\n\
 @(#)snprintf.c, v2.2: http://www.ijs.si/software/snprintf/\n";
+#endif
 
 #if defined(NEED_ASPRINTF)
 int asprintf(char **ptr, const char *fmt, /*args*/ ...) {
@@ -592,7 +594,6 @@ int portable_vsnprintf(char *str, size_t str_m, const char *fmt, va_list ap) {
       char fmt_spec = '\0';
         /* current conversion specifier character */
 
-      str_arg = credits;/* just to make compiler happy (defined but not used)*/
       str_arg = NULL;
       starting_p = p; p++;  /* skip '%' */
    /* parse flags */

@@ -6,6 +6,7 @@
 #pragma warning(disable : 4096) // varargs are always cdecl
 #pragma warning(disable : 4127) // conditional expression constant
 #pragma warning(disable : 4704) // in-line assembler
+#pragma warning(disable : 4505) // unreferenced local function
 
 // Warnings i don't mind unless i'm debugging.
 #ifdef NDEBUG

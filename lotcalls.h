@@ -72,8 +72,8 @@ struct LOTUSFUNCS
 
 extern struct LOTUSFUNCS far *callbacks;
 
-extern void __pascal ClearRegionForeground(int cols,
-                                           int lines,
+extern void __pascal ClearRegionForeground(unsigned cols,
+                                           unsigned lines,
                                            unsigned char attrs);
 extern void __pascal MoveCursor(int col, int line);
 
