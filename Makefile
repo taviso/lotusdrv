@@ -1,8 +1,8 @@
 DFLAGS=-quiet -dumb
-ASFLAGS=/m3 /q /z /w0
+WARNLEVEL=4
+ASFLAGS=/W$(WARNLEVEL) /WX /nologo
 #CPPFLAGS=/DNDEBUG
 CPPFLAGS=
-WARNLEVEL=4
 CFLAGS=/AL /nologo /NDAAA /Od /G3 /Gs /Gc /Zi /FPi87 /Zp1 /Zl /Gf /f- /W$(WARNLEVEL) /WX
 LDFLAGS=/b /nologo /onerror:noexe /nod /noe
 LDLIBS=LLIBC7
@@ -19,7 +19,7 @@ EFLAGS=/verbose /nologo
 	@rm -f $(@:.obj=.cl)
 
 %.obj: %.asm
-	dosemu $(DFLAGS) -E "IN G:/ TASM32 $(ASFLAGS) $<"
+	dosemu $(DFLAGS) -E "IN G:/ ML /c $(ASFLAGS) /Fo$@ $<"
 
 %.exe: %.obj
 	printf "$^,$@,$(@:.exe=),$(LDLIBS),nul\r\n" > $(@:.exe=.lnk)
@@ -30,16 +30,13 @@ EFLAGS=/verbose /nologo
 	mv $< $@
 #	dosemu $(DFLAGS) -E "IN G:/ EXEHDR $(EFLAGS) $@"
 
-all: l13vdemu.dld l13vcgaf.dld l13vcgad.dld
+all: l13vdemu.dld
 
 # Third party code, reduce warning level
 snprintf.obj: WARNLEVEL=1
 
-l13vcgaf.exe: l13vcgaf.obj
 l13vdemu.exe: l13vdemu.obj lotdemu.obj snprintf.obj debug.obj bundle.obj \
               lmbcs.obj attr.obj
-l13vcgad.exe: l13vcgad.obj logcalls.obj logcbs.obj snprintf.obj debug.obj \
-              l13vcgaf.obj
 
 clean:
 	rm -f *.exe *.obj *.dld *.map *.pdb *.lnk *.cl
