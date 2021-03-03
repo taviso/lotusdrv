@@ -35,6 +35,7 @@ Future ideas:
 - A FILE driver that adds native support for XLS, or ODT?
 - libcaca support so that text mode graphs work?
 - More modern @functions?
+- Javascript/Python/lua bindings? (there was an official REXX module in the 90s, so this doesn't seem farfetched!)
 
 I have some development notes available
 [here](https://lock.cmpxchg8b.com/lotus123.html).
