@@ -461,7 +461,7 @@ void __pascal SetRegionBgAttributes(unsigned cols, unsigned lines, char attrs)
     origx = curx;
     origy = cury;
 
-    for (y = 0; y < lines; y++) {
+    for (y = 0; y <= lines; y++) {
         WriteStringToFramebuffer(NULL, cols, MKBG(attrs), ATTR_BG);
         curx = origx;
         cury = origy + y;
