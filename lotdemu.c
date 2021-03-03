@@ -152,7 +152,10 @@ int RegisterDevdata()
 
 int __pascal DriverInit(void *drvapi, void *vbdptr, char *cfgname, char deflmbcsgrp)
 {
-    //openlog("H:\\DEBUG.LOG");
+    // Only log debugging messages for debug builds.
+#ifndef RELEASE
+    openlog("H:\\DEBUG.LOG");
+#endif
     traceent("DriverInit");
     traceptr(drvapi);
     traceptr(vbdptr);
@@ -170,38 +173,50 @@ int __pascal DriverInit(void *drvapi, void *vbdptr, char *cfgname, char deflmbcs
     // Create a line of blanks for quickly clearing a row.
     memset(blanks, ' ', sizeof blanks);
 
-    // Request Bios Data Area access.
-    callbacks->GetDescriptor(&vbseg, 0, 0x100);
+    if (!bdrows && !bdcols) {
+        // Request Bios Data Area access.
+        callbacks->GetDescriptor(&vbseg, 0, 0x100);
 
-    traceint(vbseg);
+        traceint(vbseg);
 
-    // See https://stanislavs.org/helppc/bios_data_area.html
-    bdrows = MK_FP(vbseg, 0x84);
-    bdcols = MK_FP(vbseg, 0x4A);
+        // See https://stanislavs.org/helppc/bios_data_area.html
+        bdrows = MK_FP(vbseg, 0x84);
+        bdcols = MK_FP(vbseg, 0x4A);
 
-    traceint(*bdrows);
-    traceint(*bdcols);
+        traceint(*bdrows);
+        traceint(*bdcols);
 
-    dpinfo.num_text_cols = *bdcols;
-    dpinfo.num_text_rows = *bdrows + 1;
+        dpinfo.num_text_cols = *bdcols;
+        dpinfo.num_text_rows = *bdrows + 1;
+    }
 
-    // Request an LDT for framebuffer access.
-    callbacks->GetDescriptor(&fbseg, 0, dpinfo.num_text_cols * dpinfo.num_text_rows * 2);
+    traceint(dpinfo.num_text_cols);
+    traceint(dpinfo.num_text_rows);
 
-    traceint(fbseg);
+    if (!framebuffer) {
+        // Request an LDT for framebuffer access.
+        callbacks->GetDescriptor(&fbseg, 0, dpinfo.num_text_cols * dpinfo.num_text_rows * 2);
 
-    framebuffer = MK_FP(fbseg, 0);
+        traceint(fbseg);
 
-    // Setup the CGA <=> 123 attribute map.
-    attrmap = callbacks->Allocate(dpinfo.num_text_cols * dpinfo.num_text_rows, 0);
+        framebuffer = MK_FP(fbseg, 0);
+    }
+
+    // Dump a few bytes just to make sure this look sane.
+    tracebuf(framebuffer, 32);
+
+    if (attrmap == NULL) {
+        // Setup the CGA <=> 123 attribute map.
+        attrmap = callbacks->Allocate(dpinfo.num_text_cols * dpinfo.num_text_rows, 0);
+
+        // Out of memory?
+        if (attrmap == NULL) {
+            logmsg("failed to allocate space for the attribute map");
+            return 1;
+        }
+    }
 
     traceptr(attrmap);
-
-    // Out of memory?
-    if (attrmap == NULL) {
-        logmsg("failed to allocate space for the attribute map");
-        return 1;
-    }
 
     // Initialize to white on black.
     memset(attrmap, 0, dpinfo.num_text_cols * dpinfo.num_text_rows);
@@ -214,6 +229,11 @@ int __pascal DriverInit(void *drvapi, void *vbdptr, char *cfgname, char deflmbcs
     // We don't really parse our VBD yet, but just for future usage.
     callbacks->MapMemVmr(vbdptr, 0);
     callbacks->LoadVmr(0);
+
+    // Clear the screen ready for 123.
+    ClearRegionForeground(dpinfo.num_text_cols,
+                          dpinfo.num_text_rows,
+                          0);
 
     return 0;
 }
@@ -229,12 +249,15 @@ int __pascal DriverTerminate()
                           dpinfo.num_text_rows,
                           0);
 
+    // FIXME: I thought this was correct, but it causes {SYSTEM} to crash.
+    //        I need to better understand this cleanup code.
+    //
     // Free our attribute map.
-    callbacks->Free(attrmap, 0, dpinfo.num_text_cols * dpinfo.num_text_rows);
+    //callbacks->Free(attrmap, 0, dpinfo.num_text_cols * dpinfo.num_text_rows);
 
     // Release any segment descriptors.
-    callbacks->FreeDescriptor(fbseg);
-    callbacks->FreeDescriptor(vbseg);
+    //callbacks->FreeDescriptor(fbseg);
+    //callbacks->FreeDescriptor(vbseg);
 
     // Release DEVDATA
     callbacks->UnregisterDevdata(devdatahdl);
@@ -271,7 +294,19 @@ void __pascal MoveCursor(int col, int line)
 }
 
 
-// Mask is the bits that I'm allowed to change.
+// Write string str to the current cursor position, str is not a lmbcs
+// string, just a literal sequence of bytes to write. It might not be NUL
+// terminated.
+//
+// len is the number of bytes to write, I don't think we have to worry about
+// linewrap, 123 will never ask us to write past the right column.
+//
+// attrs is a 6bit value, 3bits referring to the BG and three bits referring
+// to the FG, these are defined by Lotus and must be translated into CGA.
+//
+// Mask is required because sometimes Lotus wants us to update the FG, but
+// leave the BG intact, so in that case you would use MASK_FG. It's possible
+// both, none or either are specified.
 int WriteStringToFramebuffer(unsigned char far *str,
                              unsigned len,
                              unsigned char attrs,
@@ -288,7 +323,8 @@ int WriteStringToFramebuffer(unsigned char far *str,
     traceint(curx);
     traceint(cury);
 
-    // It's easier to parse lotus attributes in octal.
+    // It's easier to parse lotus attributes in octal, because they're
+    // three bit values.
     traceval("%03ho", mask);
     traceval("%03ho", attrs);
 
@@ -317,15 +353,6 @@ int WriteStringToFramebuffer(unsigned char far *str,
         //
         // - The parameter is a *LOTUS* attribute, we need to translate it
         //   to a CGA attribute before writing it to the framebuffer.
-        //
-        // - This gets tricky, because what if 123 wants to change the FG only?
-        //
-        //      1. Read the current attribute.
-        //      2. Translate it into a lotus attribute.
-        //      3. Apply masks.
-        //      4. Or in any new bits.
-        //      5. Translate it back into a CGA attr
-        //      6. Write it into the framebuffer.
         if (mask == ATTR_ALL) {
             // The easy case, overwrite everything.
             line[curx * 2 + 1] = LATTR(attr[curx] = attrs);
@@ -465,7 +492,7 @@ void __pascal ClearRegionForeground(unsigned cols,
 
     origx = curx;
     origy = cury;
-    for (y = 0; y < lines; y++) {
+    for (y = 0; y <= lines; y++) {
         WriteStringToFramebuffer(blanks, cols, MKBG(attrs), ATTR_ALL);
         curx = origx;
         cury = origy + y;
@@ -493,7 +520,7 @@ void __pascal ClearRegionForegroundKeepBg(unsigned cols, unsigned lines)
 
     origx = curx;
     origy = cury;
-    for (y = 0; y < lines; y++) {
+    for (y = 0; y <= lines; y++) {
         WriteStringToFramebuffer(blanks, cols, 0000, ATTR_FG);
         curx = origx;
         cury = origy + y;
@@ -505,8 +532,8 @@ void __pascal ClearRegionForegroundKeepBg(unsigned cols, unsigned lines)
     return;
 }
 
-// Just for debugging purposes.
-static void DrawSquare(int topx, int topy, int bottomx, int bottomy)
+// Just for debugging purposes, show where a square is on the screen.
+static void DrawSquare(int topx, int topy, int bottomx, int bottomy, char c)
 {
     unsigned char line[MAX_COLS];
     unsigned height;
@@ -516,7 +543,7 @@ static void DrawSquare(int topx, int topy, int bottomx, int bottomy)
     height = bottomy - topy;
     width  = bottomx - topx;
 
-    memset(line, '#', sizeof line);
+    memset(line, c, sizeof line);
 
     MoveCursor(topx, topy);
     WriteStringToFramebuffer(line, width, 7, ATTR_ALL);
@@ -534,8 +561,11 @@ static void DrawSquare(int topx, int topy, int bottomx, int bottomy)
     return;
 }
 
-// Move a rectangular block from the current cursor.
+// Move a rectangular block from the current cursor, including attributes.
 //
+// The region starts at curx,cury and the size is given by witdh and height.
+//
+// The source and destination region might overlap, and we have to handle that.
 void __pascal BlockRegionCopy(int width, int height, int dstx, int dsty)
 {
     unsigned char far *srcline;
@@ -550,12 +580,36 @@ void __pascal BlockRegionCopy(int width, int height, int dstx, int dsty)
     traceint(curx);
     traceint(cury);
 
-    // What do I do with attributes? I'm just copying them, I dunno.
-    for (i = 0; i < height; i++) {
-        srcline = (framebuffer + (cury + i) * dpinfo.num_text_cols * 2);
-        dstline = (framebuffer + (dsty + i) * dpinfo.num_text_cols * 2);
+    // Use this to show the source for debugging.
+    //DrawSquare(curx, cury, curx + width, cury + height, '#');
 
-        memmove(&dstline[dstx * 2], &srcline[curx * 2], width * 2);
+    // Recall that regions can overlap, so we need to be careful about
+    // our start position so we don't clobber a part we haven't processed
+    // yet.
+    // If we're moving a region *up* we want to start at the bottom.
+    // If we're moving a region *down* we want to start at top.
+    //
+    // It doesn't matter if it's moving sideways, that's memmoves problem :)
+    //
+    // Note: I am not sure I have this logic correct.
+    if (dsty <= cury)  {
+        trace("region vertical direction is down or sideways");
+        // We're moving down, start at the top.
+        for (i = 0; i < height; i++) {
+            srcline = (framebuffer + (cury + i) * dpinfo.num_text_cols * 2);
+            dstline = (framebuffer + (dsty + i) * dpinfo.num_text_cols * 2);
+
+            memmove(&dstline[dstx * 2], &srcline[curx * 2], width * 2);
+        }
+    } else {
+        trace("region vertical direction is up");
+        // We're moving up, start at the bottom.
+        for (i = height - 1; i >= 0; i--) {
+            srcline = (framebuffer + (cury + i) * dpinfo.num_text_cols * 2);
+            dstline = (framebuffer + (dsty + i) * dpinfo.num_text_cols * 2);
+
+            memmove(&dstline[dstx * 2], &srcline[curx * 2], width * 2);
+        }
     }
 
     // I can't get this damn thing aligned properly >:(

@@ -17,6 +17,7 @@
 *.core
 *.map
 *.dld
+*.zip
 compile_commands.json
 build-*/
 a.out
