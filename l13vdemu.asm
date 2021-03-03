@@ -1,10 +1,9 @@
-; vim: set ft=tasm:
-version m520
-.model large,stdcall
+; vim: set ft=masm:
+.model large,pascal
 .486
 
-DOSSEG
-CODESEG
+.DOSSEG
+.CODE
 
 extern DriverInit: proc
 extern GetDisplayInfo: proc
@@ -62,7 +61,7 @@ start           dd GetDisplayInfo
                 dw seg _DATA
 
 ; This is just here to satisfy the crt, it should never be called.
-global _main: proc
+public _main
 _main proc far
         mov     ax, 4141h
         int     3
@@ -73,10 +72,10 @@ _main endp
 ;
 ; If you define a symbol, and then use /NOE, the linkers uses this one,
 ; so this stops that nuisance object from being linked into my executable.
-global __nullcheck: proc
+public __nullcheck
 __nullcheck proc far
         mov     ax, 4242h
         int     3
 __nullcheck endp
 
-end start
+end
