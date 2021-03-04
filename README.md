@@ -55,3 +55,22 @@ The `-dumb` (i.e. dumb terminal) option makes old DOS tools work like UNIX
 tools. This requires you have your autoexec.bat setup so that `%PATH%` works,
 but is very convenient for development - even exit codes work!
 
+# FAQ
+
+Q. Which display driver should I be using for terminal mode?
+
+A. The CGA driver works, but this driver is better :-)
+
+Q. 123 is not seeing all the EMS/XMS memory I have configured in DOSEMU?
+
+A. Try adding `SET 123MEMSIZE=134217728` (that's 128M, use an appropriate number for your configuration) to `fdppauto.bat`.
+
+Q. If I try to use 123 in two xterms simultaneously, I get an error like "The stand-alone license is not currently available".
+
+A. Add something like this to your `fdppauto.bat`
+
+```bat
+REM CLEAN UP LICENSE FOR 1-2-3
+DEL C:\123R4D\LICENSE.000 > NUL
+COPY NUL C:\123R4D\LICENSE.000 > NUL
+```
