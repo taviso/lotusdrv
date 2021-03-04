@@ -79,4 +79,22 @@ COPY NUL C:\123R4D\LICENSE.000 > NUL
 
 **Q. What DOSEMU settings do you use for 123?**
 
-Here is my [dosemurc](https://lock.cmpxchg8b.com/files/dosemurc)
+A. Here is my [dosemurc](https://lock.cmpxchg8b.com/files/dosemurc)
+
+**Q. How can I send 123 worksheets to someone else?**
+
+A. Libreoffice can open and convert WK3 files, if necessary. Most formulas and features will be preserved.
+
+
+**Q. Can I fetch external data into 123, like stock prices with a macro? **
+
+A. I use a macro like this to fetch stock prices (simplified):
+
+```
+{SYSTEM "UNIX stocks.sh GOOGL > %TEMP%\STOCKS.TXT"}
+{OPEN "C:\TMP\STOCKS.TXT", "r"}
+{READLN C1}
+{CLOSE}
+```
+
+The `UNIX` command is a `DOSEMU` feature, it runs a command on the host. The online help explains how to loop over ranges, etc.
