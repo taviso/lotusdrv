@@ -61,7 +61,7 @@ but is very convenient for development - even exit codes work!
 
 A. The CGA driver works, but this driver is better :-)
 
-**Q. If I use the /Worksheet/Status command, 123 does not seeing all the EMS/XMS memory I have configured in DOSEMU?**
+**Q. If I use the /Worksheet/Status command, 123 does not see all the EMS/XMS memory I have configured in DOSEMU?**
 
 A. Try adding `SET 123MEMSIZE=134217728` (that's 128M, use an appropriate number for your configuration) to `fdppauto.bat`.
 
