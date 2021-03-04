@@ -14,6 +14,13 @@
 # pragma warning(disable : 4101) // unreferenced local variable
 #endif
 
+// Dont create logfiles for release builds.
+#ifdef RELEASE
+# define DEBUG_LOGFILE NULL
+#else
+// You can also set "CON" to show messages on stdout.
+# define DEBUG_LOGFILE "H:\\DEBUG.LOG"
+#endif
 
 // Unfortunately we can't use stdio in addins, because the crt uses malloc.
 #define HAVE_SNPRINTF

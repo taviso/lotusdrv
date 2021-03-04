@@ -152,10 +152,9 @@ int RegisterDevdata()
 
 int __pascal DriverInit(void *drvapi, void *vbdptr, char *cfgname, char deflmbcsgrp)
 {
-    // Only log debugging messages for debug builds.
-#ifndef RELEASE
-    openlog("H:\\DEBUG.LOG");
-#endif
+    // If requested, log all calls
+    openlog(DEBUG_LOGFILE);
+
     traceent("DriverInit");
     traceptr(drvapi);
     traceptr(vbdptr);
@@ -463,12 +462,10 @@ void __pascal SetRegionBgAttributes(unsigned cols, unsigned lines, char attrs)
 
     for (y = 0; y <= lines; y++) {
         WriteStringToFramebuffer(NULL, cols, MKBG(attrs), ATTR_BG);
-        curx = origx;
-        cury = origy + y;
+        MoveCursor(origx, origy + y);
     }
 
-    curx = origx;
-    cury = origy;
+    MoveCursor(origx, origy);
 
     return;
 }
@@ -492,14 +489,13 @@ void __pascal ClearRegionForeground(unsigned cols,
 
     origx = curx;
     origy = cury;
+
     for (y = 0; y <= lines; y++) {
         WriteStringToFramebuffer(blanks, cols, MKBG(attrs), ATTR_ALL);
-        curx = origx;
-        cury = origy + y;
+        MoveCursor(origx, origy + y);
     }
 
-    curx = origx;
-    cury = origy;
+    MoveCursor(origx, origy);
 
     return;
 }
@@ -522,12 +518,10 @@ void __pascal ClearRegionForegroundKeepBg(unsigned cols, unsigned lines)
     origy = cury;
     for (y = 0; y <= lines; y++) {
         WriteStringToFramebuffer(blanks, cols, 0000, ATTR_FG);
-        curx = origx;
-        cury = origy + y;
+        MoveCursor(origx, origy + y);
     }
 
-    curx = origx;
-    cury = origy;
+    MoveCursor(origx, origy);
 
     return;
 }
