@@ -86,7 +86,8 @@ A. Here is my [dosemurc](https://lock.cmpxchg8b.com/files/dosemurc)
 A. Libreoffice can open and convert WK3 files, if necessary. Most formulas and features will be preserved.
 
 
-**Q. Can I fetch external data into 123, like stock prices with a macro? **
+
+**Q. Can I fetch external data into 123, like stock prices with a macro?**
 
 A. I use a macro like this to fetch stock prices (simplified):
 
