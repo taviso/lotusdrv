@@ -86,7 +86,6 @@ A. Here is my [dosemurc](https://lock.cmpxchg8b.com/files/dosemurc)
 A. Libreoffice can open and convert WK3 files, if necessary. Most formulas and features will be preserved.
 
 
-
 **Q. Can I fetch external data into 123, like stock prices with a macro?**
 
 A. I use a macro like this to fetch stock prices (simplified):
@@ -99,3 +98,19 @@ A. I use a macro like this to fetch stock prices (simplified):
 ```
 
 The `UNIX` command is a `DOSEMU` feature, it runs a command on the host. The online help explains how to loop over ranges, etc.
+
+**Q. What do I need to know to get started?**
+
+A. If you don't have a manuel, there's one available online [here](https://archive.org/details/lotus-1-2-3-release-3.1-reference/).
+
+Assuming you've used a spreadsheet before, you should be able to get started quickly.
+
+| Key | Description |
+| --- | ------------|
+|  /  | Open the 123 menu.
+| F4  | Enter point mode, to select ranges.
+| Ctrl PgUp/PgDn | Move between open tabs/sheets.
+| F1  | Open online help.
+
+If you want to be able to open your documents to your `~/Documents` directory, you can add something like
+`LREDIR D: \\linux\fs\home\foo\Documents` to your `fdppauto.bat`.
