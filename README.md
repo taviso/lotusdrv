@@ -97,11 +97,11 @@ A. I use a macro like this to fetch stock prices (simplified):
 {CLOSE}
 ```
 
-The `UNIX` command is a `DOSEMU` feature, it runs a command on the host. The online help explains how to loop over ranges, etc.
+The `UNIX` command is a `DOSEMU` feature, it runs a command on the host. The 123 online help explains how to loop over ranges, etc.
 
 **Q. What do I need to know to get started?**
 
-A. If you don't have a manuel, there's one available online [here](https://archive.org/details/lotus-1-2-3-release-3.1-reference/).
+A. If you don't have a manual, there's one available online [here](https://archive.org/details/lotus-1-2-3-release-3.1-reference/).
 
 Assuming you've used a spreadsheet before, you should be able to get started quickly.
 
