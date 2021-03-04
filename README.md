@@ -9,7 +9,7 @@ you could possibly want!
 
 ![screenshot](screenshot.png)
 
-> Note: This driver is intended for DOSEMU2 in *-term* mode, i.e. running in a terminal.
+> Note: This driver is intended for DOSEMU2 in *term* mode, i.e. running in a terminal.
 
 I used MSVC 8.00c (still available to MSDN subscribers), I believe it's the
 last version of MSVC that could target DOS.
@@ -54,4 +54,76 @@ For example, you can run tasm from a Makefile like `dosemu -dumb -E "tasm ..."`
 The `-dumb` (i.e. dumb terminal) option makes old DOS tools work like UNIX
 tools. This requires you have your autoexec.bat setup so that `%PATH%` works,
 but is very convenient for development - even exit codes work!
+
+# FAQ
+
+**Q. Which display driver should I be using for terminal mode?**
+
+A. Select the CGA driver during install, then install this driver :-)
+
+**Q. If I use the /Worksheet/Status command, 123 does not see all the EMS/XMS memory I have configured in DOSEMU?**
+
+A. Try adding `SET 123MEMSIZE=134217728` (that's 128M, use an appropriate number for your configuration) to `fdppauto.bat`.
+
+There is also `123SWAPPATH`, `123VIRTSIZE` and `123SWAPSIZE` if you want to tweak it.
+
+**Q. If I try to use 123 in two xterms simultaneously, I get an error like "The stand-alone license is not currently available".**
+
+A. Add something like this to your `fdppauto.bat`
+
+```bat
+REM CLEAN UP LICENSE FOR 1-2-3
+DEL C:\123R4D\LICENSE.000 > NUL
+COPY NUL C:\123R4D\LICENSE.000 > NUL
+```
+
+**Q. What DOSEMU settings do you use for 123?**
+
+A. Here is my [dosemurc](https://lock.cmpxchg8b.com/files/dosemurc)
+
+**Q. How can I send 123 worksheets to someone else?**
+
+A. Libreoffice can open and convert WK3 files, if necessary. Most formulas and features will be preserved.
+
+
+**Q. Can I fetch external data into 123, like stock prices with a macro?**
+
+A. I use a macro like this to fetch stock prices (simplified):
+
+```
+{SYSTEM "UNIX stocks.sh GOOGL > %TEMP%\STOCKS.TXT"}
+{OPEN "C:\TMP\STOCKS.TXT", "r"}
+{READLN C1}
+{CLOSE}
+```
+
+The `UNIX` command is a `DOSEMU` feature, it runs a command on the host. The 123 online help explains how to loop over ranges, etc.
+
+**Q. What do I need to know to get started?**
+
+A. If you don't have a manual, there's one available online [here](https://archive.org/details/lotus-1-2-3-release-3.1-reference/Lotus%201-2-3%20Release%203.1%20-%20Tutorial).
+
+If you've used any spreadsheet before, you should be able to get started quickly. Functions use `@` instead of `=`, but the
+common functions like `@SUM`, `@AVG`, `@INDEX`, and even `@HLOOKUP` all work as you would expect.
+
+| Key | Description |
+| --- | ------------|
+|  /  | Open the 123 menu.
+| F4  | Enter point mode, to select ranges.
+| Ctrl PgUp/PgDn | Move between open tabs/sheets (use /Worksheet/Insert/Sheet to add a tab).
+| F9  | Recalculate, if you press it while entering a formula, the text will be replaced with it's value.
+| F1  | Open online help.
+
+If you want to be able to save your documents to your home directory, you can add something like
+`LREDIR D: \\linux\fs\home\foo\Documents` to your `fdppauto.bat`.
+
+**Q. Why does selecting text with the mouse not work?**
+
+DOSEMU emulates a mouse (even in terminal mode!) so when you try to select text DOSEMU is reporting mouse events to DOS.
+
+How to stop that happening depends on your terminal.
+
+In `XTerm` you can Shift-RightClick and disable "Allow Mouse Ops", change the `allowMouseOps` resource to make it permanent.
+
+In most terminals you can hold down `Shift` while selecting.
 
