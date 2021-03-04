@@ -9,7 +9,7 @@ you could possibly want!
 
 ![screenshot](screenshot.png)
 
-> Note: This driver is intended for DOSEMU2 in *-term* mode, i.e. running in a terminal.
+> Note: This driver is intended for DOSEMU2 in *term* mode, i.e. running in a terminal.
 
 I used MSVC 8.00c (still available to MSDN subscribers), I believe it's the
 last version of MSVC that could target DOS.
