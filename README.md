@@ -101,7 +101,7 @@ The `UNIX` command is a `DOSEMU` feature, it runs a command on the host. The 123
 
 **Q. What do I need to know to get started?**
 
-A. If you don't have a manual, there's one available online [here](https://archive.org/details/lotus-1-2-3-release-3.1-reference/).
+A. If you don't have a manual, there's one available online [here](https://archive.org/details/lotus-1-2-3-release-3.1-reference/Lotus%201-2-3%20Release%203.1%20-%20Tutorial).
 
 If you've used any spreadsheet before, you should be able to get started quickly. Functions use `@` instead of `=`, but the
 common functions like `@SUM`, `@AVG`, `@INDEX`, and even `@HLOOKUP` all work as you would expect.
@@ -116,3 +116,14 @@ common functions like `@SUM`, `@AVG`, `@INDEX`, and even `@HLOOKUP` all work as 
 
 If you want to be able to save your documents to your home directory, you can add something like
 `LREDIR D: \\linux\fs\home\foo\Documents` to your `fdppauto.bat`.
+
+**Q. Why does selecting text with the mouse not work?**
+
+DOSEMU emulates a mouse (even in terminal mode!) so when you try to select text DOSEMU is reporting mouse events to DOS.
+
+How to stop that happening depends on your terminal.
+
+In `XTerm` you can Shift-RightClick and disable "Allow Mouse Ops", change the `allowMouseOps` resource to make it permanent.
+
+In most terminals you can hold down `Shift` while selecting.
+
