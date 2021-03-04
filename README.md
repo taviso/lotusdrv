@@ -59,7 +59,7 @@ but is very convenient for development - even exit codes work!
 
 **Q. Which display driver should I be using for terminal mode?**
 
-A. The CGA driver works, but this driver is better :-)
+A. Select the CGA driver during install, then install this driver :-)
 
 **Q. If I use the /Worksheet/Status command, 123 does not see all the EMS/XMS memory I have configured in DOSEMU?**
 
