@@ -103,7 +103,8 @@ The `UNIX` command is a `DOSEMU` feature, it runs a command on the host. The 123
 
 A. If you don't have a manual, there's one available online [here](https://archive.org/details/lotus-1-2-3-release-3.1-reference/).
 
-Assuming you've used a spreadsheet before, you should be able to get started quickly.
+If you've used any spreadsheet before, you should be able to get started quickly. Functions use `@` instead of `=`, but the
+common functions like `@SUM`, `@AVG`, `@INDEX`, and even `@HLOOKUP` all work as you would expect.
 
 | Key | Description |
 | --- | ------------|
@@ -113,5 +114,5 @@ Assuming you've used a spreadsheet before, you should be able to get started qui
 | F9  | Recalculate, if you press it while entering a formula, the text will be replaced with it's value.
 | F1  | Open online help.
 
-If you want to be able to open your documents to your `~/Documents` directory, you can add something like
+If you want to be able to save your documents to your home directory, you can add something like
 `LREDIR D: \\linux\fs\home\foo\Documents` to your `fdppauto.bat`.
