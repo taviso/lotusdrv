@@ -109,7 +109,8 @@ Assuming you've used a spreadsheet before, you should be able to get started qui
 | --- | ------------|
 |  /  | Open the 123 menu.
 | F4  | Enter point mode, to select ranges.
-| Ctrl PgUp/PgDn | Move between open tabs/sheets.
+| Ctrl PgUp/PgDn | Move between open tabs/sheets (use /Worksheet/Insert/Sheet to add a tab).
+| F9  | Recalculate, if you press it while entering a formula, the text will be replaced with it's value.
 | F1  | Open online help.
 
 If you want to be able to open your documents to your `~/Documents` directory, you can add something like
