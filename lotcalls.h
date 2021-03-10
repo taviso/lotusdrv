@@ -6,16 +6,15 @@
 struct LOTUSFUNCS
 {
   __int32 lfield_0;
-  void far *(__pascal *AllocMem)(int vmr, int size, int);
-  void (__pascal *lfield_8)(void far *ptr, int size);
-  void far *(__pascal __far far *Allocate)(int size, int tag);
-  int (__pascal __far *Free)(void far *addr, int unknown, int size);
-
+  void far *(__pascal __far *AllocMem)(int vmr, int size, int);
+  void      (__pascal __far *lfield_8)(void far *ptr, int size);
+  void far *(__pascal __far *Allocate)(int size, int tag);
+  int       (__pascal __far *Free)(void far *addr, int unknown, int size);
   // I believe this maps generic ptr m onto a VMR for use with EMS.
-  void far *(__pascal *MapMemVmr)(void far *m, int v);
+  void far *(__pascal __far *MapMemVmr)(void far *m, int v);
 
   // Tell 123 that you're about to use VMR v, and so it better be mapped in.
-  void far *(__pascal *LoadVmr)(int v);
+  void far *(__pascal __far *LoadVmr)(int v);
 
   __int32 field_1C;
   __int32 field_20;
@@ -30,14 +29,14 @@ struct LOTUSFUNCS
   __int32 field_44;
   __int32 field_48;
   __int32 field_4C;
-  int (__pascal far *RegisterDevdataStruct)(struct DEVDATA far *, int far *);
+  int       (__pascal __far *RegisterDevdataStruct)(struct DEVDATA far *, int far *);
   __int32 field_54;
-  __int32 field_58;
-  __int32 field_5C;
-  void (__pascal __far far *UnregisterDevdata)(int hdl);
-  __int32 field_64;
-  __int32 field_68;
-  __int32 field_6C;
+  void      (__pascal __far *field_58)(int, int);
+  int       (__pascal __far *field_5C)(int, void far *ptr);
+  void      (__pascal __far *UnregisterDevdata)(int hdl);
+  int       (__pascal __far *field_64)(int, void far *ptr);
+  int       (__pascal __far *field_68)(int, int, void far *ptr1, void far *ptr2);
+  int       (__pascal __far *field_6C)(int, int, void *a, int, void far *b, void far *c);
   __int32 field_70;
   __int32 field_74;
   __int32 field_78;

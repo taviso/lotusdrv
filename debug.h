@@ -56,6 +56,12 @@
         __asm { int 3 };        \
 } while (false)
 
+// These get replaced on overlay switch, but sometimes handy.
+#define __breakpoint(s, o) do {             \
+    unsigned char far *bpint = MK_FP(s, o); \
+    *bpint = 0xCC;                          \
+} while (false)
+
 int openlog(const char *name);
 int closelog(void);
 int logmsg(const char *fmt, ...);

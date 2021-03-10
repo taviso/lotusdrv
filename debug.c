@@ -14,9 +14,12 @@ static int logfile = -1;
 
 int openlog(const char *name)
 {
-    closelog();
-
+    // Name not specified.
     if (name == NULL)
+        return 1;
+
+    // Logfile already open.
+    if (logfile != -1)
         return 1;
 
     if (_dos_creat(name, _A_NORMAL, &logfile) != 0) {

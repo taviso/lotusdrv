@@ -18,6 +18,11 @@
 *.map
 *.dld
 *.zip
+*.id0
+*.id1
+*.idb
+*.nam
+*.til
 compile_commands.json
 build-*/
 a.out

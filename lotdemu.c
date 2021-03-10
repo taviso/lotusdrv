@@ -15,27 +15,26 @@
 #include "bundle.h"
 #include "lmbcs.h"
 #include "attr.h"
+#include "caca.h"
+#include "draw.h"
 
 // The current cursor position.
 static int curx;
 static int cury;
 
-// LDT entries we need to release on exit.
-unsigned fbseg = CGA_FRAMEBUF;
-unsigned vbseg = BIOS_DATA_AREA;
+// Selectors we need to release on exit.
+unsigned fbseg;
+unsigned vbseg;
 
 // This will point into the CGA framebuffer.
 static unsigned char far * framebuffer;
 
-// These two pointers reference the BDA (BIOS Data Area)
-// The number of rows will be 1 less than the actual rows. Look, I didn't
-// invent it.
+// These two pointers reference values in the BDA (BIOS Data Area).
 static unsigned int far * bdcols;
 static unsigned char far * bdrows;
 
-
 // There is an "optimized" LMBCS encoding that skips the group byte
-// and just uses a default, and 123 tells us what the default should
+// and just uses a default value. 123 tells us what the default should
 // be at startup.
 static unsigned char lmbcsgroup;
 
@@ -49,6 +48,9 @@ static unsigned char blanks[MAX_COLS];
 // you can touch them.
 static unsigned char far *attrmap;
 
+// Not sure what this ptr is yet.
+static void far *resdata;
+
 static struct DISPLAYINFO dpinfo = {
     80,     // num_text_cols
     25,     // num_text_rows
@@ -57,39 +59,67 @@ static struct DISPLAYINFO dpinfo = {
     1,      // hpu_per_col
     320,    // graph_cols
     200,    // graph_rows
-    6,      // graph_col_res
-    5,      // graph_row_res
-    0,      // view_set_size
+    1,      // graph_col_res
+    1,      // graph_row_res
+    100,    // view_set_size
     true,   // iscolor
+};
+
+struct FONTINFO fontinfo = {
+    { 'd', 'e', 'f', 'a', 'u', 'l', 't' },
+    0,  // angle
+    1,  // em_pix_hgt
+    1,  // em_pix_wid
+};
+
+static unsigned char fillpatts[] = {
+  0x18, 0x24, 0x42, 0x81, 0x81, 0x42, 0x24, 0x18, 0x09, 0x12, 0x24, 0x48,
+  0x90, 0x21, 0x42, 0x84, 0x01, 0x24, 0x02, 0x48, 0x04, 0x90, 0x09, 0x20,
+  0x12, 0x40, 0x24, 0x80, 0x49, 0x00, 0x92, 0x00, 0x24, 0x04, 0x48, 0x08,
+  0x90, 0x10, 0x20, 0x24, 0x40, 0x48, 0x80, 0x90, 0x01, 0x80, 0x02, 0x40,
+  0x04, 0x20, 0x08, 0x10, 0x10, 0x08, 0x20, 0x04, 0x40, 0x02, 0x80, 0x01,
+  0x80, 0x01, 0x40, 0x02, 0x20, 0x04, 0x10, 0x08, 0x08, 0x10, 0x04, 0x20,
+  0x02, 0x40, 0x01, 0x80, 0x00, 0x09, 0x00, 0x12, 0x00, 0x24, 0x00, 0x48,
+  0x00, 0x90, 0x01, 0x20, 0x02, 0x40, 0x04, 0x80, 0x09, 0x00, 0x12, 0x00,
+  0x24, 0x00, 0x48, 0x00, 0x90, 0x00, 0x20, 0x01, 0x40, 0x02, 0x80, 0x04,
+  0x00, 0x04, 0x00, 0x08, 0x00, 0x10, 0x00, 0x20, 0x00, 0x40, 0x00, 0x80,
+  0x01, 0x00, 0x02, 0x00, 0x04, 0x00, 0x08, 0x00, 0x10, 0x00, 0x20, 0x00,
+  0x40, 0x00, 0x80, 0x00, 0xff, 0xff, 0x55, 0x55, 0xff, 0xff, 0x55, 0x55,
+  0xee, 0xee, 0x55, 0x55, 0xbb, 0xbb, 0x55, 0x55, 0xaa, 0xaa, 0x55, 0x55,
+  0xaa, 0xaa, 0x55, 0x55, 0xaa, 0xaa, 0x44, 0x44, 0xaa, 0xaa, 0x11, 0x11,
+  0xaa, 0xaa, 0x00, 0x00, 0xaa, 0xaa, 0x00, 0x00, 0x88, 0x88, 0x00, 0x00,
+  0x22, 0x22, 0x00, 0x00
 };
 
 // I think an mu must be a "movement unit"?
 static struct DEVDATA devdata = {
   1,        // ShowMeFlag
   200,      // RasterHeight
-  6,        // AspectX
-  5,        // AspectY
-  4,        // RHmusPerTHmu
+  1,        // AspectX
+  1,        // AspectY
+  1,        // RHmusPerTHmu
   1,        // RHmuPerGHmus
-  8,        // RVmusPerTVmu
+  1,        // RVmusPerTVmu
   1,        // RVmuPerGVmus
   {
-      { { 1,  8  }, { 0, 0 }, 0, { 0, 0 } },  // 0
-      { { 16, 8  }, { 0, 0 }, 0, { 0, 0 } },  // 1
-      { { 32, 16 }, { 0, 0 }, 0, { 0, 0 } },  // 2
-      { { 32, 16 }, { 0, 0 }, 0, { 0, 0 } },  // 3
-      { { 32, 16 }, { 0, 0 }, 0, { 0, 0 } },  // 4
-      { { 16, 8  }, { 0, 0 }, 0, { 0, 0 } },  // 5
-      { { 16, 8  }, { 0, 0 }, 0, { 0, 0 } },  // 6
-      { { 16, 8  }, { 0, 0 }, 0, { 0, 0 } },  // 7
-      { { 16, 8  }, { 0, 0 }, 0, { 0, 0 } },  // 8
-      { { 16, 8  }, { 0, 0 }, 0, { 0, 0 } },  // 9
-      { { 16, 8  }, { 0, 0 }, 0, { 0, 0 } },  // 10
-      { { 16, 8  }, { 0, 0 }, 0, { 0, 0 } },  // 11
+      { { 8,  8  }, { 0, 0 }, &fillpatts[  0], { 0, 0 } },  // 0
+      { { 8,  8  }, { 0, 0 }, &fillpatts[  0], { 0, 0 } },  // 1
+      { { 14, 14 }, { 0, 0 }, &fillpatts[  0], { 0, 0 } },  // 2
+      { { 16, 16 }, { 0, 0 }, &fillpatts[  0], { 0, 0 } },  // 3
+      { { 16, 16 }, { 0, 0 }, &fillpatts[  0], { 0, 0 } },  // 4
+      { { 14, 14 }, { 0, 0 }, &fillpatts[  0], { 0, 0 } },  // 5
+      { {  4, 16 }, { 0, 0 }, &fillpatts[  0], { 0, 0 } },  // 6
+      { {  4, 16 }, { 0, 0 }, &fillpatts[  0], { 0, 0 } },  // 7
+      { {  4, 16 }, { 0, 0 }, &fillpatts[  0], { 0, 0 } },  // 8
+      { {  4, 16 }, { 0, 0 }, &fillpatts[  0], { 0, 0 } },  // 9
+      { {  4, 16 }, { 0, 0 }, &fillpatts[  0], { 0, 0 } },  // 10
+      { {  4, 16 }, { 0, 0 }, &fillpatts[  0], { 0, 0 } },  // 11
   },        // FillPatts
   {
-    0xAA, 0xAA, 0x55, 0x00, 0xAA, 0x55, 0x00, 0x00,
-    0xFF, 0xAA, 0x55, 0x00, 0xAA, 0x55, 0x00, 0xFF,
+    CACA_MAGENTA,   CACA_MAGENTA,   CACA_CYAN,  CACA_BLACK,
+    CACA_MAGENTA,   CACA_CYAN,      CACA_BLACK, CACA_BLACK,
+    CACA_WHITE,     CACA_MAGENTA,   CACA_CYAN,  CACA_BLACK,
+    CACA_MAGENTA,   CACA_CYAN,      CACA_WHITE, CACA_BLACK,
   },        // ColorMap
   {
     0xFFFF, 0xAAAA, 0xCCCC, 0xCACA,
@@ -99,21 +129,24 @@ static struct DEVDATA devdata = {
     0x0001, 0x0006, 0x000C, 0x0012,
     0x0018, 0x001E, 0x0024, 0x002A
   },        // SrcPatS
-  8,        // FIndexCnt
-  NULL,     // FontIndex
-  6,        // FNamesCnt
-  0,        // FontNames
+  26,       // FIndexCnt
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZ",     // FontIndex
+  1,            // FNamesCnt
+  &fontinfo,    // FontNames
   {
-    0,      // scan_linx
-    0,      // fill_rect
-    0,      // thin_diag_line
-    0,      // thin_vert_line
-    0,      // shade_rect
-    0,      // fill_scan_list
+    exprt_scan_linx,
+    exprt_fill_rect,
+    exprt_thin_diag_line,
+    exprt_thin_vert_line,
+    exprt_shade_rect,
+    exprt_fill_scan_list,
   },        // DevFuncs
 };
 
 struct LOTUSFUNCS far *callbacks;
+
+// The canvas used for drawing ascii-art graphics.
+caca_canvas_t *cv;
 
 void __pascal GetDisplayInfo(struct DISPLAYINFO far *dspinfo)
 {
@@ -127,10 +160,12 @@ void __pascal GetDisplayInfo(struct DISPLAYINFO far *dspinfo)
     return;
 }
 
-int RegisterDevdata()
+
+static int RegisterDevdata()
 {
     int result;
     void *destptr;
+    void *vmrptr;
 
     trace("registering DEVDATA");
 
@@ -139,18 +174,27 @@ int RegisterDevdata()
     // Allocate a VMR buffer to give to 123.
     destptr = callbacks->AllocMem(0x27, sizeof devdata, 1);
 
+    traceptr(destptr);
+
     // Copy out buffer over.
     memcpy(destptr, &devdata, sizeof devdata);
 
+    vmrptr = callbacks->LoadVmr(1);
+
+    traceptr(vmrptr);
+
     // Register it, we release this handle in our DriverTerminate().
-    devdatahdl = callbacks->RegisterDevdataStruct(destptr, &result);
+    devdatahdl = callbacks->RegisterDevdataStruct(vmrptr, &result);
 
     traceint(devdatahdl);
     traceint(result);
     return 0;
 }
 
-int __pascal DriverInit(void *drvapi, void *vbdptr, char *cfgname, char deflmbcsgrp)
+int __pascal DriverInit(void far *drvapi,
+                        struct BDLHDR far *vbdptr,
+                        const char far *cfgname,
+                        char deflmbcsgrp)
 {
     // If requested, log all calls
     openlog(DEBUG_LOGFILE);
@@ -164,6 +208,10 @@ int __pascal DriverInit(void *drvapi, void *vbdptr, char *cfgname, char deflmbcs
     // Save this pointer for calling lotus functions.
     callbacks = drvapi;
 
+    // Descriptors we want installed.
+    vbseg = BIOS_DATA_AREA;
+    fbseg = CGA_FRAMEBUF;
+
     tracebuf(callbacks, sizeof *callbacks);
 
     // Record the default lmbcs group
@@ -172,47 +220,57 @@ int __pascal DriverInit(void *drvapi, void *vbdptr, char *cfgname, char deflmbcs
     // Create a line of blanks for quickly clearing a row.
     memset(blanks, ' ', sizeof blanks);
 
-    if (!bdrows && !bdcols) {
-        // Request Bios Data Area access.
-        callbacks->GetDescriptor(&vbseg, 0, 0x100);
+    // Request Bios Data Area access.
+    callbacks->GetDescriptor(&vbseg, 0, 0x100);
 
-        traceint(vbseg);
+    traceint(vbseg);
 
-        // See https://stanislavs.org/helppc/bios_data_area.html
-        bdrows = MK_FP(vbseg, 0x84);
-        bdcols = MK_FP(vbseg, 0x4A);
+    // See https://stanislavs.org/helppc/bios_data_area.html
+    bdrows = MK_FP(vbseg, 0x84);
+    bdcols = MK_FP(vbseg, 0x4A);
 
-        traceint(*bdrows);
-        traceint(*bdcols);
+    traceint(*bdrows);
+    traceint(*bdcols);
 
-        dpinfo.num_text_cols = *bdcols;
-        dpinfo.num_text_rows = *bdrows + 1;
-    }
+    dpinfo.num_text_cols = *bdcols;
+    dpinfo.num_text_rows = *bdrows + 1;
+
+    dpinfo.graph_cols = dpinfo.num_text_cols;
+    dpinfo.graph_rows = dpinfo.num_text_rows;
+    devdata.RasterHeight = dpinfo.graph_rows;
+    devdata.AspectX = 2;
+    devdata.AspectY = 1;
 
     traceint(dpinfo.num_text_cols);
     traceint(dpinfo.num_text_rows);
 
-    if (!framebuffer) {
-        // Request an LDT for framebuffer access.
-        callbacks->GetDescriptor(&fbseg, 0, dpinfo.num_text_cols * dpinfo.num_text_rows * 2);
+    // Request an LDT for framebuffer access.
+    callbacks->GetDescriptor(&fbseg,
+                             0,
+                             dpinfo.num_text_cols * dpinfo.num_text_rows * 2);
 
-        traceint(fbseg);
+    traceint(fbseg);
 
-        framebuffer = MK_FP(fbseg, 0);
-    }
+    framebuffer = MK_FP(fbseg, 0);
 
     // Dump a few bytes just to make sure this look sane.
     tracebuf(framebuffer, 32);
 
-    if (attrmap == NULL) {
-        // Setup the CGA <=> 123 attribute map.
-        attrmap = callbacks->Allocate(dpinfo.num_text_cols * dpinfo.num_text_rows, 0);
+    // For some reason the order of these operations is important, otherwise
+    // DEVDATA gets unmapped at inconvenient times.
+    RegisterDevdata();
 
-        // Out of memory?
-        if (attrmap == NULL) {
-            logmsg("failed to allocate space for the attribute map");
-            return 1;
-        }
+    // Setup the CGA <=> 123 attribute map.
+    attrmap = callbacks->AllocMem(0x27,
+                                  dpinfo.num_text_cols * dpinfo.num_text_rows,
+                                  0);
+    //attrmap = callbacks->Allocate(dpinfo.num_text_cols * dpinfo.num_text_rows, 0);
+    //callbacks->LoadVmr(0);
+
+    // Out of memory?
+    if (attrmap == NULL) {
+        logmsg("failed to allocate space for the attribute map");
+        return 1;
     }
 
     traceptr(attrmap);
@@ -223,17 +281,16 @@ int __pascal DriverInit(void *drvapi, void *vbdptr, char *cfgname, char deflmbcs
     // Parse out configuration bundle.
     ParseConfig(vbdptr);
 
-    RegisterDevdata();
-
-    // We don't really parse our VBD yet, but just for future usage.
-    callbacks->MapMemVmr(vbdptr, 0);
-    callbacks->LoadVmr(0);
-
     // Clear the screen ready for 123.
     ClearRegionForeground(dpinfo.num_text_cols,
                           dpinfo.num_text_rows,
                           0);
 
+    // Initialize a canvas for ASCII-art graphics.
+    cv = caca_create_canvas(dpinfo.num_text_cols,
+                            dpinfo.num_text_rows,
+                            fbseg,
+                            0);
     return 0;
 }
 
@@ -252,25 +309,26 @@ int __pascal DriverTerminate()
     //        I need to better understand this cleanup code.
     //
     // Free our attribute map.
-    //callbacks->Free(attrmap, 0, dpinfo.num_text_cols * dpinfo.num_text_rows);
+    callbacks->Free(attrmap, 0, dpinfo.num_text_cols * dpinfo.num_text_rows);
 
     // Release any segment descriptors.
-    //callbacks->FreeDescriptor(fbseg);
-    //callbacks->FreeDescriptor(vbseg);
+    callbacks->FreeDescriptor(vbseg);
+    callbacks->FreeDescriptor(fbseg);
 
     // Release DEVDATA
     callbacks->UnregisterDevdata(devdatahdl);
 
     // If we were logging, close it.
-    closelog();
+    //closelog();
 
     return 0;
 }
 
+// This is called when 1-2-3 exits graphics mode.
 int __pascal ResetDisplay()
 {
     traceent("ResetDisplay");
-
+    MoveCursor(0, 0);
     return 1;
 }
 
@@ -630,27 +688,17 @@ int __pascal FitTranslatedString(int strarglen,
                                  int ncols,
                                  int far *bytesneeded)
 {
-    int result;
-
     traceent("FitTranslatedString");
     traceint(strarglen);
     tracestrlen(strarg, strarglen);
     traceint(ncols);
     traceptr(bytesneeded);
 
-    if (ncols < 0) {
-        ncols += dpinfo.num_text_cols;
-    }
-
-    result = translate_lmbcs(strarg, NULL, 0, strarglen, lmbcsgroup);
-
-    traceint(result);
-
-    *bytesneeded = result;
+    *bytesneeded = translate_lmbcs(strarg, NULL, 0, strarglen, lmbcsgroup);
 
     traceint(*bytesneeded);
 
-    return result;
+    return *bytesneeded;
 }
 
 void __pascal SetCursorInvisible()
@@ -665,22 +713,44 @@ void __pascal SetCursorVisible()
     return;
 }
 
-void __pascal LockCursorAttributes()
+void __pascal LockCursorAttributes(int unused, int cursmodenum)
 {
     traceent("LockCursorAttributes");
+    traceint(unused);
+    traceint(cursmodenum);
     return;
 }
 
-void __pascal QQCalledBeforeGraphicsMode()
+int __pascal QQCalledBeforeGraphicsMode(void far *m)
 {
+    int result;
+    struct RESDATA r;
+
     traceent("QQCalledBeforeGraphicsMode");
-    __debugbreak();
+    traceptr(m);
+    tracebuf(m, 16);
+    // I don't understand this function, I'm just duplicating
+    // the logic from the real CGA driver.
+    callbacks->MapMemVmr(m, 0);
+    callbacks->LoadVmr(0);
+
+    memcpy(&r, (char far *)(m) + 0x15, sizeof r);
+
+    callbacks->field_58(devdatahdl, 0);
+    result = callbacks->field_5C(devdatahdl, &r);
+
+    callbacks->MapMemVmr(m, 0);
+    callbacks->LoadVmr(0);
+    return 0;
 }
 
-void __pascal QQLotusApiJustCallsFunc_1()
+int __pascal QQLotusApiJustCallsFunc_1(int strarglen, void far *strarg)
 {
     traceent("QQLotusApiJustCallsFunc_1");
-    __debugbreak();
+    traceint(strarglen);
+    traceptr(strarg);
+    tracebuf(strarg, strarglen);
+    return callbacks->field_68(devdatahdl, strarglen, strarg, resdata);
 }
 
 void __pascal MoveCursor2(int col, int line)
@@ -690,44 +760,56 @@ void __pascal MoveCursor2(int col, int line)
     return;
 }
 
-void __pascal QQLotusApiJustCallsFunc_0()
+int __pascal IsGraphicsModeReady(void far *ptr)
 {
-    traceent("QQLotusApiJustCallsFunc_0");
-    __debugbreak();
-    return;
+    int result;
+    traceent("IsGraphicsModeReady");
+    traceptr(ptr);
+    tracebuf(ptr, 16);
+    traceint(devdatahdl);
+    result = callbacks->field_64(devdatahdl, ptr);
+    traceint(result);
+    tracebuf(ptr, 16);
+    trace("field_64 returned");
+    return 1;
 }
 
 int __pascal ComplicatedNop()
 {
     traceent("ComplicatedNop");
-    __debugbreak();
     return 0;
 }
 
 int __pascal zerosub_0()
 {
     traceent("zerosub_0");
-    __debugbreak();
     return 0;
 }
 
-int __pascal LotusApiPassedPtr()
+int __pascal LotusApiPassedPtr(void far *ptr)
 {
     traceent("LotusApiPassedPtr");
-    __debugbreak();
+    traceptr(ptr);
+    resdata = ptr;
     return 0;
 }
 
-int __pascal LotusApiJustCallsFunc()
+int __pascal DrawStringAtPosition(int len, const char far *str, int c, void far *d)
 {
-    traceent("LotusApiJustCallsFunc");
-    __debugbreak();
-    return 0;
+    traceent("DrawStringAtPosition");
+    traceint(len);
+    traceptr(str);
+    tracestrlen(str, len);
+    traceval("%#x", c);
+    traceptr(d);
+    tracebuf(d, 32);
+    return callbacks->field_6C(devdatahdl, len, str, c, d, resdata);
 }
 
-int __pascal nullsub_5()
+int __pascal nullsub_5(int a, int b)
 {
     traceent("nullsub_5");
-    __debugbreak();
+    traceptr(a);
+    traceptr(b);
     return 0;
 }

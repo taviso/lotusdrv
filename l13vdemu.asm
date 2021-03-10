@@ -26,11 +26,11 @@ extern LockCursorAttributes: proc
 extern QQCalledBeforeGraphicsMode: proc
 extern QQLotusApiJustCallsFunc_1: proc
 extern MoveCursor2: proc
-extern QQLotusApiJustCallsFunc_0: proc
+extern IsGraphicsModeReady: proc
 extern ComplicatedNop: proc
 extern zerosub_0: proc
 extern LotusApiPassedPtr: proc
-extern LotusApiJustCallsFunc: proc
+extern DrawStringAtPosition: proc
 extern nullsub_5: proc
 
 start           dd GetDisplayInfo
@@ -53,11 +53,11 @@ start           dd GetDisplayInfo
                 dd QQCalledBeforeGraphicsMode
                 dd QQLotusApiJustCallsFunc_1
                 dd MoveCursor2
-                dd QQLotusApiJustCallsFunc_0
+                dd IsGraphicsModeReady
                 dd ComplicatedNop
                 dd zerosub_0
                 dd LotusApiPassedPtr
-                dd LotusApiJustCallsFunc
+                dd DrawStringAtPosition
                 dd nullsub_5
                 dw seg _DATA
 

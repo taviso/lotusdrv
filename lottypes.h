@@ -36,12 +36,12 @@ struct BDLRECHDR
 
 struct DEVPRIM
 {
-  __int32 scan_linx;
-  __int32 fill_rect;
-  __int32 thin_diag_line;
-  __int32 thin_vert_line;
-  __int32 shade_rect;
-  __int32 fill_scan_list;
+  void (__pascal __far *scan_linx)(int, int, int, int);
+  void (__pascal __far *fill_rect)(int, int, int, int, int);
+  void (__pascal __far *thin_diag_line)(int, int, int, int, int);
+  void (__pascal __far *thin_vert_line)(int, int, int, int);
+  void (__pascal __far *shade_rect)(int, int, int, int, void far *, int);
+  void (__pascal __far *fill_scan_list)();
 };
 
 typedef struct DEVPRIM DEVPRIM;
@@ -58,7 +58,7 @@ struct PATT
 {
   POINT pattsize;
   POINT patthotSpot;
-  __int32 pattptr;
+  void far *pattptr;
   POINT pattSecOffset;
 };
 
@@ -81,8 +81,27 @@ struct DEVDATA
   int FIndexCnt;
   void far *FontIndex;
   int FNamesCnt;
-  __int32 FontNames;
+  void far *FontNames;
   DEVPRIM DevFuncs;
 };
+
+struct RESDATA
+{
+  int rfield_0;
+  int rescolumns;
+  int rfield_4;
+  int resrows;
+  int rfield_8;
+  int rfield_A;
+};
+
+struct FONTINFO
+{
+  char name[9];
+  int angle;
+  int em_pix_hgt;
+  int em_pix_wid;
+};
+
 
 #endif
