@@ -704,9 +704,16 @@ int __pascal FitTranslatedString(int strarglen,
 void __pascal SetCursorInvisible()
 {
     traceent("SetCursorInvisible");
+
+    // https://stanislavs.org/helppc/int_10-1.html
+    //
+    // To hide the cursor, you simply set bit 5 of ch. int 10,1
+    // supports configuring the size of the cursor too, but that
+    // doesn't work in terminal mode - it's all or nothing.
     __asm {
         mov ah, 1
-        mov cx, 0x2607
+        mov ch, 1 << 5
+        mov cl, 0
         int 0x10
     }
     return;
@@ -715,10 +722,19 @@ void __pascal SetCursorInvisible()
 void __pascal SetCursorVisible()
 {
     traceent("SetCursorVisible");
+
+    // First we make sure the "hide cursor" bit isn't set, see the
+    // implementation of SetCursorInvisible() for details.
     __asm {
         mov ah, 1
-        mov cx, 0x607
+        mov ch, 0
+        mov cl, 0
         int 0x10
+    }
+
+    // Now we need to put it in the right place, you can set the position with
+    // int 10,2. https://stanislavs.org/helppc/int_10-2.html
+    __asm {
         mov ah, 2
         mov bx, cury
         mov cx, curx
