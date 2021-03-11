@@ -704,12 +704,28 @@ int __pascal FitTranslatedString(int strarglen,
 void __pascal SetCursorInvisible()
 {
     traceent("SetCursorInvisible");
+    __asm {
+        mov ah, 1
+        mov cx, 0x2607
+        int 0x10
+    }
     return;
 }
 
 void __pascal SetCursorVisible()
 {
     traceent("SetCursorVisible");
+    __asm {
+        mov ah, 1
+        mov cx, 0x607
+        int 0x10
+        mov ah, 2
+        mov bx, cury
+        mov cx, curx
+        mov dl, cl
+        mov dh, bl
+        int 0x10
+    }
     return;
 }
 
@@ -794,7 +810,7 @@ int __pascal LotusApiPassedPtr(void far *ptr)
     return 0;
 }
 
-int __pascal DrawStringAtPosition(int len, const char far *str, int c, void far *d)
+int __pascal DrawStringAtPosition(int len, char far *str, int c, void far *d)
 {
     traceent("DrawStringAtPosition");
     traceint(len);
