@@ -305,9 +305,6 @@ int __pascal DriverTerminate()
                           dpinfo.num_text_rows,
                           0);
 
-    // FIXME: I thought this was correct, but it causes {SYSTEM} to crash.
-    //        I need to better understand this cleanup code.
-    //
     // Free our attribute map.
     callbacks->Free(attrmap, 0, dpinfo.num_text_cols * dpinfo.num_text_rows);
 
@@ -315,8 +312,11 @@ int __pascal DriverTerminate()
     callbacks->FreeDescriptor(vbseg);
     callbacks->FreeDescriptor(fbseg);
 
-    // Release DEVDATA
+    // Release DEVDATA.
     callbacks->UnregisterDevdata(devdatahdl);
+
+    // Decrement canvas reference count.
+    caca_free_canvas(cv);
 
     // If we were logging, close it.
     //closelog();
@@ -799,11 +799,11 @@ int __pascal IsGraphicsModeReady(void far *ptr)
     traceptr(ptr);
     tracebuf(ptr, 16);
     traceint(devdatahdl);
+    traceptr(cv);
     result = callbacks->field_64(devdatahdl, ptr);
     traceint(result);
     tracebuf(ptr, 16);
-    trace("field_64 returned");
-    return 1;
+    return true;
 }
 
 int __pascal ComplicatedNop()

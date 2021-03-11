@@ -41,7 +41,7 @@ void __pascal exprt_fill_rect(int x, int y, int width, int height, int attr)
     traceint(width);
     traceint(height);
     traceint(attr);
-
+    traceptr(cv);
     caca_set_color_ansi(cv, attr, CACA_WHITE);
     caca_fill_box(cv, x, y, width, height, ' ');
     return;

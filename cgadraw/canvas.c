@@ -39,7 +39,7 @@ caca_canvas_t * far caca_create_canvas(int width, int height, int sel, int off)
     }
 
     cv = &canvas;
-    cv->refcount = 1;
+    cv->refcount++;
     cv->autoinc = 0;
     cv->resize_callback = NULL;
     cv->resize_data = NULL;
@@ -101,7 +101,8 @@ uint32_t const * caca_get_canvas_attrs(caca_canvas_t const *cv)
 
 int caca_free_canvas(caca_canvas_t *cv)
 {
-    return -1;
+    cv->refcount--;
+    return 0;
 }
 
 int caca_rand(int min, int max)
