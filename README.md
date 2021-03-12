@@ -98,10 +98,11 @@ quickly. Functions use `@` instead of `=`, but the common functions like
 | Key | Description |
 | --- | ------------|
 |  /  | Open the 123 menu.
+| F1  | Open online help.
+| F2  | Edit existing cell contents.
 | F4  | Enter point mode, to select ranges.
 | Ctrl PgUp/PgDn | Move between open tabs/sheets (use /Worksheet/Insert/Sheet to add a tab).
 | F9  | Recalculate, if you press it while entering a formula, the text will be replaced with it's value.
-| F1  | Open online help.
 
 If you want to be able to save your documents to your home directory, you can
 add something like `LREDIR D: \\linux\fs\home\foo\Documents` to your `fdppauto.bat`.
@@ -117,4 +118,14 @@ In `XTerm` you can Shift-RightClick and disable "Allow Mouse Ops", change the
 `allowMouseOps` resource to make it permanent.
 
 In most terminals you can hold down `Shift` while selecting.
+
+**Q. How do I undo my last action?**
+
+The default keybinding is `Alt-F4`, but that can be hard to enter on modern systems.
+
+If you can't press `Alt-F4` easily, a workaround is to add
+[SCANCODE](http://bretjohnson.us/index.htm) to your `%PATH%`, and then bind a
+macro to something like `{SYSTEM "SCANCODE M 2,W 1,0 \"READY\",ALT-F4"}`.
+
+You can then bind a macro to `Alt-Z` by naming a range `\z`.
 
