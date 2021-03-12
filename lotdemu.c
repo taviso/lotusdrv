@@ -698,7 +698,8 @@ int __pascal FitTranslatedString(int strarglen,
 
     traceint(*bytesneeded);
 
-    return *bytesneeded;
+    // Truncate if necessary.
+    return *bytesneeded = __min(*bytesneeded, ncols);
 }
 
 void __pascal SetCursorInvisible()
