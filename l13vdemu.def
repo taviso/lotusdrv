@@ -1,0 +1,32 @@
+LIBRARY     L13VDEMU
+DESCRIPTION 'DOSEMU2 DISPLAY DRIVER FOR LOTUS 123R4D'
+HEAPSIZE    0
+STACKSIZE   0
+DATA MULTIPLE
+EXPORTS
+    GetDisplayInfo @1
+    DriverInit @2
+    DriverTerminate @3
+    ResetDisplay @4
+    SetGraphicsMode @5
+    MoveCursor @6
+    WriteLmbcsStringWithAttributes @7
+    WritePaddedLmbcsStringWithAttributes @8
+    SetRegionBgAttributes @9
+    ClearRegionForeground @10
+    ClearRegionForegroundKeepBg @11
+    BlockRegionCopy @12
+    CalcSizeTranslatedString @13
+    FitTranslatedString @14
+    SetCursorInvisible @15
+    SetCursorVisible @16
+    LockCursorAttributes @17
+    QQCalledBeforeGraphicsMode @18
+    QQLotusApiJustCallsFunc_1 @19
+    MoveCursor2 @20
+    IsGraphicsModeReady @21
+    ComplicatedNop @22
+    zerosub_0 @23
+    LotusApiPassedPtr @24
+    DrawStringAtPosition @25
+    nullsub_5 @26
