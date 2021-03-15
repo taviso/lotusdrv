@@ -99,8 +99,10 @@ quickly. Functions use `@` instead of `=`, but the common functions like
 | --- | ------------|
 |  /  | Open the 123 menu.
 | F1  | Open online help.
-| F2  | Edit existing cell contents.
-| F4  | Enter point mode, to select ranges.
+| F2  | Edit an existing cell contents, just type to overwrite cell.
+| F3  | Show names, press F3 while editing to see a list of functions or ranges.
+| F4  | Enter point mode - it's like visual mode in Vim - to select ranges.
+| F5  | Goto Address.
 | Ctrl PgUp/PgDn | Move between open tabs/sheets (use /Worksheet/Insert/Sheet to add a tab).
 | F9  | Recalculate, if you press it while entering a formula, the text will be replaced with it's value.
 
