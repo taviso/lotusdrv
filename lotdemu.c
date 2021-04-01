@@ -621,7 +621,9 @@ static void DrawSquare(int topx, int topy, int bottomx, int bottomy, char c)
 void __pascal BlockRegionCopy(int width, int height, int dstx, int dsty)
 {
     unsigned char far *srcline;
+    unsigned char far *srcattr;
     unsigned char far *dstline;
+    unsigned char far *dstattr;
     int i;
 
     traceent("BlockRegionCopy");
@@ -649,18 +651,24 @@ void __pascal BlockRegionCopy(int width, int height, int dstx, int dsty)
         // We're moving down, start at the top.
         for (i = 0; i < height; i++) {
             srcline = (framebuffer + (cury + i) * dpinfo.num_text_cols * 2);
+            srcattr = (attrmap + (cury + i) * dpinfo.num_text_cols * 1);
             dstline = (framebuffer + (dsty + i) * dpinfo.num_text_cols * 2);
+            dstattr = (attrmap + (dsty + i) * dpinfo.num_text_cols * 1);
 
             memmove(&dstline[dstx * 2], &srcline[curx * 2], width * 2);
+            memmove(&dstattr[dstx], &srcattr[curx], width);
         }
     } else {
         trace("region vertical direction is up");
         // We're moving up, start at the bottom.
         for (i = height - 1; i >= 0; i--) {
             srcline = (framebuffer + (cury + i) * dpinfo.num_text_cols * 2);
+            srcattr = (attrmap + (cury + i) * dpinfo.num_text_cols * 1);
             dstline = (framebuffer + (dsty + i) * dpinfo.num_text_cols * 2);
+            dstattr = (attrmap + (dsty + i) * dpinfo.num_text_cols * 1);
 
             memmove(&dstline[dstx * 2], &srcline[curx * 2], width * 2);
+            memmove(&dstattr[dstx], &srcattr[curx], width);
         }
     }
 
