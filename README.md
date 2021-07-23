@@ -87,15 +87,14 @@ A. I use a macro like this to fetch stock prices (simplified):
 The `UNIX` command is a `DOSEMU` feature, it runs a command on the host. The
 123 online help explains how to loop over ranges, etc.
 
-I have a very simple demo sheet that demonstrates how to do this available
+I have a very simple example sheet that demonstrates how to do this available
 [here](https://lock.cmpxchg8b.com/files/findemo.wk3).
 
-It demonstrates how to automatically populate a table of stock prices, press
-`Alt-R` to update stock prices. Use `Ctrl-PgUp` and `Ctrl-PgDn` to switch
-sheets and browse around.
+It automatically populates a table of stock prices when you press `Alt-R`. Use
+`Ctrl-PgUp` and `Ctrl-PgDn` to switch sheets and browse around.
 
 You will need a script in your `$PATH` like this, and don't forget to add it to
-your `$_unix_exec`.
+your `$_unix_exec` in `.dosemurc`.
 
 ```bash
 #!/bin/bash
