@@ -87,6 +87,25 @@ A. I use a macro like this to fetch stock prices (simplified):
 The `UNIX` command is a `DOSEMU` feature, it runs a command on the host. The
 123 online help explains how to loop over ranges, etc.
 
+I have a very simple demo sheet that demonstrates how to do this available
+[here](https://lock.cmpxchg8b.com/files/findemo.wk3).
+
+It demonstrates how to automatically populate a table of stock prices, press
+`Alt-R` to update stock prices. Use `Ctrl-PgUp` and `Ctrl-PgDn` to switch
+sheets and browse around.
+
+You will need a script in your `$PATH` like this, and don't forget to add it to
+your `$_unix_exec`.
+
+```bash
+#!/bin/bash
+
+declare api="https://query1.finance.yahoo.com/v7/finance/quote"
+declare filter=".quoteResponse.result[].regularMarketPrice"
+
+curl -s "${api}?symbols=${1:-^GSPC}" | jq -r "${filter}" | cat
+```
+
 **Q. What do I need to know to get started?**
 
 A. If you don't have a manual, there's one available online [here](https://archive.org/details/lotus-1-2-3-release-3.1-reference/Lotus%201-2-3%20Release%203.1%20-%20Tutorial).
