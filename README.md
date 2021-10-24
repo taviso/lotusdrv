@@ -144,9 +144,13 @@ In most terminals you can hold down `Shift` while selecting.
 
 The default keybinding is `Alt-F4`, but that can be hard to enter on modern systems.
 
-If you can't press `Alt-F4` easily, a workaround is to add
-[SCANCODE](http://bretjohnson.us/index.htm) to your `%PATH%`, and then bind a
-macro to something like `{SYSTEM "SCANCODE M 2,W 1,0 \"READY\",ALT-F4"}`.
+If you can't press `Alt-F4` easily, there are two options.
+
+1. DOSEMU has support for simulating modifier keys, you can
+   type: Ctrl-6 Shift-A F4 Ctrl-6 Shift-A.
+2. That's a lot of keys though, another workaround is to add
+   [SCANCODE](http://bretjohnson.us/index.htm) to your `%PATH%`, and then bind
+   a macro to something like `{SYSTEM "SCANCODE M 2,W 1,0 \"READY\",ALT-F4"}`.
 
 You can then bind a macro to `Alt-Z` by naming a range `\z`.
 
