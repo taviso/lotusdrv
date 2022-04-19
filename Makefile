@@ -7,8 +7,13 @@ CFLAGS=/AL /nologo /NDAAA /Od /G3 /Gs /Gc /Zi /FPi87 /Zp1 /Zl /Gf /f- /W$(WARNLE
 LDFLAGS=/map:full /b /nologo /onerror:noexe /nod /noe
 LDLIBS=LLIBC7
 EFLAGS=/verbose /nologo
+LFLAGS=-q
 
 .PHONY: clean distclean cgadraw.lib l13vcgaf.obj l13vcgad.obj logcalls.obj logcbs.obj
+
+%.plc: %.pl
+	@rm -f $@
+	dosemu $(DFLAGS) -E "IN G:/ LPL $(LFLAGS) $<"
 
 # MS-DOS doesn't allow long commandlines, so params are written to a "response"
 # file.
@@ -62,8 +67,9 @@ release: clean l13vdemu.dld
 	zip l13vdemu.zip l13vdemu.dld README.md
 
 clean:
-	rm -f *.exe *.obj *.dld *.map *.pdb *.lnk *.cl *.lib l13vdemu.zip
+	rm -f *.exe *.obj *.dld *.map *.pdb *.lnk *.cl *.lib *.plc l13vdemu.zip
 
 distclean: clean
 	make -C cgadraw clean
 	make -C debug clean
+	make -C addin clean
