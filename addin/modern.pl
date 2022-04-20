@@ -22,32 +22,42 @@ Register("Match", At_Function)
 procedure Match (integer value, Range table, integer mtype) returns (integer result)
     signals (Err, NA)
     purpose ("Searches for a specified item in a range of cells") is
-    integer cnt = 0
+
+    integer count = 0
+
+    result = 0
 
     begin
         for integer i = 1 to table.Sheets loop
             for integer j = 1 to table.Columns loop
                 for integer k = 1 to table.Rows loop
-
-                    cnt = cnt + 1
-
-                    if table[i, j, k] = value then
-                        result = cnt
-                        return
-                    end if
-
-                    -- case rng.DataType (i, j, k)
-                    --    of StringData:
-                    -- end case
-                    --    except on others do
-                    --        signal Err
-                    --    end except
+                    count = count + 1
+                    case mtype
+                        of 1:
+                        -- MATCH finds the largest value that is less than or equal to lookup_value
+                            if table[i, j, k] <= value then
+                                result = count
+                            end if
+                        of 0:
+                        -- MATCH finds the first value that is exactly equal to lookup_value
+                            if table[i, j, k] = value then
+                                result = count
+                                return
+                            end if
+                        of -1:
+                        -- MATCH finds the smallest value that is greater than or equal to lookup_value
+                            if table[i, j, k] >= value then
+                                result = count
+                            end if
+                    end case
                 end loop
             end loop
         end loop
 
         -- If MATCH is unsuccessful in finding a match, it returns the #N/A error value.
-        signal NA
+        if result = 0 then
+            signal NA
+        end if
     end
     except on others (string sig) do
         Print("Signal ", sig, " raised.")

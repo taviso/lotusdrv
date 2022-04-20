@@ -1,3 +1,4 @@
+addins: modern.plc
+
 include ../Makefile
 
-addins: modern.plc
