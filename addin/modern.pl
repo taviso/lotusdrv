@@ -14,9 +14,6 @@ use AtStr
 use Utility
 
 Register("Match", At_Function)
-    except on others do
-        Print("Unable to register @MATCH")
-    end except
 
 -- MATCH(lookup_value, lookup_array, [match_type])
 procedure Match (integer value, Range table, integer mtype) returns (integer result)
@@ -26,6 +23,15 @@ procedure Match (integer value, Range table, integer mtype) returns (integer res
     integer count = 0
 
     result = 0
+
+    -- This only works on one-dimensional tables.
+    if table.Columns <> 1 & table.Rows <> 1 then
+        signal Err
+    end if
+
+    if table.Sheets <> 1 then
+        signal Err
+    end if
 
     begin
         for integer i = 1 to table.Sheets loop
