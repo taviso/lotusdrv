@@ -85,14 +85,26 @@ struct DEVDATA
   DEVPRIM DevFuncs;
 };
 
-struct RESDATA
+// I'm still a bit lost on what all these fields are.
+// I have no idea how 123 knows where the opcodes end.
+struct GRAPH
 {
-  int rfield_0;
-  int rescolumns;
-  int rfield_4;
-  int resrows;
-  int rfield_8;
-  int rfield_A;
+    char unknown0;
+    char unknown1;
+    char far *screeninfo;   // Seems to contain resolution and font data.
+    char far *rasterops;    // Sometimes a duplicate of the bytecode ptr?
+    int unknown2;
+    int unknown3;
+    int unknown4;
+    int unknown5;
+    int unknown6;
+    char unknown7;
+    struct RASTEROPS {
+        void far *screeninfo;
+        void far *bytecode;
+        int rfield_8;       // Always seems to be 1
+        int rfield_A;
+    } rops;
 };
 
 struct FONTINFO

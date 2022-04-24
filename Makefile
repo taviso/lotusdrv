@@ -15,6 +15,10 @@ LFLAGS=-q
 	@rm -f $@
 	dosemu $(DFLAGS) -E "IN G:/ LPL $(LFLAGS) $<"
 
+%.plh: %.plc
+	@rm -f $@
+	dosemu $(DFLAGS) -E "IN G:/ DESCRIBE $<"
+
 # MS-DOS doesn't allow long commandlines, so params are written to a "response"
 # file.
 
@@ -53,7 +57,7 @@ snprintf.obj: WARNLEVEL=1
 
 l13vdemu.exe: LDLIBS+=CGADRAW
 l13vdemu.exe: l13vdemu.obj lotdemu.obj snprintf.obj debug.obj bundle.obj \
-              lmbcs.obj attr.obj draw.obj | cgadraw.lib
+              lmbcs.obj attr.obj draw.obj raster.obj | cgadraw.lib
 
 # Original driver.
 l13vcgaf.exe: l13vcgaf.obj
@@ -65,6 +69,9 @@ l13vcgad.exe: l13vcgad.obj logcalls.obj logcbs.obj snprintf.obj debug.obj \
 release: CPPFLAGS+=/DRELEASE
 release: clean l13vdemu.dld
 	zip l13vdemu.zip l13vdemu.dld README.md
+
+install: l13vdemu.dld
+	cp $< ~/.dosemu/drive_c/123R4D/L13VCGAF.DLD
 
 clean:
 	rm -f *.exe *.obj *.dld *.map *.pdb *.lnk *.cl *.lib *.plc l13vdemu.zip

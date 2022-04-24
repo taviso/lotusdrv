@@ -53,7 +53,7 @@ static const unsigned char * lmbcs_tables[31] = {
     lmbcs_group1_table,     // 1
 };
 
-// This is the able from https://en.wikipedia.org/wiki/Lmbcs#Encodings
+// This is the table from https://en.wikipedia.org/wiki/Lmbcs#Encodings
 static const int lmbcs_group_length[] = {
     1, // NUL
     2, // Code page 850 (DOS Latin-1)

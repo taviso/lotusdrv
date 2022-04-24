@@ -17,6 +17,17 @@
 #include "attr.h"
 #include "caca.h"
 #include "draw.h"
+#include "raster.h"
+
+// You can either disable labels on graphs, try to draw them graphically, or
+// try to draw them as text.
+// If you set WANT_GRAPH_LABELS, the 1-2-3 rasterizer will try to drawn them.
+// This is unlikely to look good at low resolutions.
+// If you set WANT_TEXT_LABELS, then we will try to parse the rasterizer
+// bytecode to figure out where the labels are, and then draw them ourselves.
+// If you set neither, no labels will get drawn.
+#define WANT_GRAPH_LABELS 0     // Note: not working yet
+#define WANT_TEXT_LABELS 0      // Note: nearly working!
 
 // The current cursor position.
 static int curx;
@@ -38,8 +49,8 @@ static unsigned char far * bdrows;
 // be at startup.
 static unsigned char lmbcsgroup;
 
-// A handle returned when registering DEVDATA.
-static unsigned devdatahdl;
+// A handle returned when opening the rasterizer.
+static unsigned rasthdl;
 
 static unsigned char blanks[MAX_COLS];
 
@@ -49,7 +60,7 @@ static unsigned char blanks[MAX_COLS];
 static unsigned char far *attrmap;
 
 // Not sure what this ptr is yet.
-static void far *resdata;
+static void far *curview;
 
 static struct DISPLAYINFO dpinfo = {
     80,     // num_text_cols
@@ -148,9 +159,9 @@ struct LOTUSFUNCS far *callbacks;
 // The canvas used for drawing ascii-art graphics.
 caca_canvas_t *cv;
 
-void __pascal GetDisplayInfo(struct DISPLAYINFO far *dspinfo)
+void __pascal drv_disp_info(struct DISPLAYINFO far *dspinfo)
 {
-    traceent("GetDisplayInfo");
+    traceent("drv_disp_info");
     traceptr(dspinfo);
 
     memcpy(dspinfo, &dpinfo, sizeof dpinfo);
@@ -161,45 +172,45 @@ void __pascal GetDisplayInfo(struct DISPLAYINFO far *dspinfo)
 }
 
 
-static int RegisterDevdata()
+static int start_lotus_rasterizer()
 {
     int result;
     void *destptr;
     void *vmrptr;
 
-    trace("registering DEVDATA");
+    trace("starting rasterizer...");
 
     tracebuf(&devdata, sizeof devdata);
 
     // Allocate a VMR buffer to give to 123.
-    destptr = callbacks->AllocMem(0x27, sizeof devdata, 1);
+    destptr = callbacks->alloc_mptr(0x27, sizeof devdata, 1);
 
     traceptr(destptr);
 
     // Copy out buffer over.
     memcpy(destptr, &devdata, sizeof devdata);
 
-    vmrptr = callbacks->LoadVmr(1);
+    vmrptr = callbacks->drv_get_vmr(1);
 
     traceptr(vmrptr);
 
-    // Register it, we release this handle in our DriverTerminate().
-    devdatahdl = callbacks->RegisterDevdataStruct(vmrptr, &result);
+    // Register it, we release this handle in our drv_disp_close().
+    rasthdl = callbacks->open_rasterizer(vmrptr, &result);
 
-    traceint(devdatahdl);
+    traceint(rasthdl);
     traceint(result);
     return 0;
 }
 
-int __pascal DriverInit(void far *drvapi,
-                        struct BDLHDR far *vbdptr,
-                        const char far *cfgname,
-                        char deflmbcsgrp)
+int __pascal drv_disp_open(void far *drvapi,
+                           struct BDLHDR far *vbdptr,
+                           const char far *cfgname,
+                           char deflmbcsgrp)
 {
     // If requested, log all calls
     openlog(DEBUG_LOGFILE);
 
-    traceent("DriverInit");
+    traceent("drv_disp_open");
     traceptr(drvapi);
     traceptr(vbdptr);
     tracestr(cfgname);
@@ -221,7 +232,7 @@ int __pascal DriverInit(void far *drvapi,
     memset(blanks, ' ', sizeof blanks);
 
     // Request Bios Data Area access.
-    callbacks->GetDescriptor(&vbseg, 0, 0x100);
+    callbacks->set_disp_buf(&vbseg, 0, 0x100);
 
     traceint(vbseg);
 
@@ -245,7 +256,7 @@ int __pascal DriverInit(void far *drvapi,
     traceint(dpinfo.num_text_rows);
 
     // Request an LDT for framebuffer access.
-    callbacks->GetDescriptor(&fbseg,
+    callbacks->set_disp_buf(&fbseg,
                              0,
                              dpinfo.num_text_cols * dpinfo.num_text_rows * 2);
 
@@ -258,12 +269,12 @@ int __pascal DriverInit(void far *drvapi,
 
     // For some reason the order of these operations is important, otherwise
     // DEVDATA gets unmapped at inconvenient times.
-    RegisterDevdata();
+    start_lotus_rasterizer();
 
     // Setup the CGA <=> 123 attribute map.
-    attrmap = callbacks->AllocMem(0x27,
-                                  dpinfo.num_text_cols * dpinfo.num_text_rows,
-                                  0);
+    attrmap = callbacks->alloc_mptr(0x27,
+                                    dpinfo.num_text_cols * dpinfo.num_text_rows,
+                                    0);
     //attrmap = callbacks->Allocate(dpinfo.num_text_cols * dpinfo.num_text_rows, 0);
     //callbacks->LoadVmr(0);
 
@@ -282,9 +293,9 @@ int __pascal DriverInit(void far *drvapi,
     ParseConfig(vbdptr);
 
     // Clear the screen ready for 123.
-    ClearRegionForeground(dpinfo.num_text_cols,
-                          dpinfo.num_text_rows,
-                          0);
+    drv_disp_clear(dpinfo.num_text_cols,
+                   dpinfo.num_text_rows,
+                   0);
 
     // Initialize a canvas for ASCII-art graphics.
     cv = caca_create_canvas(dpinfo.num_text_cols,
@@ -294,26 +305,28 @@ int __pascal DriverInit(void far *drvapi,
     return 0;
 }
 
-int __pascal DriverTerminate()
+int __pascal drv_disp_close()
 {
-    traceent("DriverTerminate");
+    traceent("drv_disp_close");
 
     // Clean up the screen.
-    MoveCursor(0, 0);
+    drv_disp_set_pos(0, 0);
 
-    ClearRegionForeground(dpinfo.num_text_cols,
-                          dpinfo.num_text_rows,
-                          0);
+    drv_disp_clear(dpinfo.num_text_cols,
+                   dpinfo.num_text_rows,
+                   0);
 
     // Free our attribute map.
-    callbacks->Free(attrmap, 0, dpinfo.num_text_cols * dpinfo.num_text_rows);
+    callbacks->free_fixed_block(attrmap,
+                                0,
+                                dpinfo.num_text_cols * dpinfo.num_text_rows);
 
     // Release any segment descriptors.
-    callbacks->FreeDescriptor(vbseg);
-    callbacks->FreeDescriptor(fbseg);
+    callbacks->drop_disp_buf(vbseg);
+    callbacks->drop_disp_buf(fbseg);
 
-    // Release DEVDATA.
-    callbacks->UnregisterDevdata(devdatahdl);
+    // No more rasterization needed.
+    callbacks->close_rasterizer(rasthdl);
 
     // Decrement canvas reference count.
     caca_free_canvas(cv);
@@ -325,22 +338,23 @@ int __pascal DriverTerminate()
 }
 
 // This is called when 1-2-3 exits graphics mode.
-int __pascal ResetDisplay()
+int __pascal drv_disp_text()
 {
-    traceent("ResetDisplay");
-    MoveCursor(0, 0);
+    traceent("drv_disp_text");
+    drv_disp_set_pos(0, 0);
     return 1;
 }
 
-int __pascal SetGraphicsMode()
+// This is called when a graph is requested (F10).
+int __pascal drv_disp_graph()
 {
     traceent("SetGraphicsMode");
     return 1;
 }
 
-void __pascal MoveCursor(int col, int line)
+void __pascal drv_disp_set_pos(int col, int line)
 {
-    traceent("MoveCursor");
+    traceent("drv_disp_set_pos");
     traceint(col);
     traceint(line);
 
@@ -364,10 +378,10 @@ void __pascal MoveCursor(int col, int line)
 // Mask is required because sometimes Lotus wants us to update the FG, but
 // leave the BG intact, so in that case you would use MASK_FG. It's possible
 // both, none or either are specified.
-int WriteStringToFramebuffer(unsigned char far *str,
-                             unsigned len,
-                             unsigned char attrs,
-                             unsigned char mask)
+static int WriteStringToFramebuffer(unsigned char far *str,
+                                    unsigned len,
+                                    unsigned char attrs,
+                                    unsigned char mask)
 {
     unsigned char far *line;
     unsigned char far *attr;
@@ -436,14 +450,14 @@ int WriteStringToFramebuffer(unsigned char far *str,
     return curx;
 }
 
-int __pascal WriteLmbcsStringWithAttributes(unsigned byteslen,
-                                            unsigned char far *lmbcsptr,
-                                            unsigned char attrs)
+int __pascal drv_disp_write(unsigned byteslen,
+                                unsigned char far *lmbcsptr,
+                                unsigned char attrs)
 {
     unsigned char dest[MAX_COLS];
     int result;
 
-    traceent("WriteLmbcsStringWithAttributes");
+    traceent("drv_disp_write");
     traceint(byteslen);
     tracestrlen(lmbcsptr, byteslen);
     traceval("%03ho", attrs);
@@ -457,15 +471,15 @@ int __pascal WriteLmbcsStringWithAttributes(unsigned byteslen,
     return result;
 }
 
-int __pascal WritePaddedLmbcsStringWithAttributes(unsigned byteslen,
-                                                  char far *lmbcsptr,
-                                                  unsigned char attrs,
-                                                  unsigned startpad,
-                                                  unsigned endpad)
+int __pascal drv_disp_zone(unsigned byteslen,
+                           char far *lmbcsptr,
+                           unsigned char attrs,
+                           unsigned startpad,
+                           unsigned endpad)
 {
     unsigned char dest[MAX_COLS];
     int result;
-    traceent("WritePaddedLmbcsStringWithAttributes");
+    traceent("drv_disp_zone");
     traceint(byteslen);
     tracestrlen(lmbcsptr, byteslen);
     traceval("%03ho", attrs);
@@ -500,12 +514,12 @@ int __pascal WritePaddedLmbcsStringWithAttributes(unsigned byteslen,
 //
 // Does not appear to change current cursor position.
 
-void __pascal SetRegionBgAttributes(unsigned cols, unsigned lines, char attrs)
+void __pascal drv_disp_set_bg(unsigned cols, unsigned lines, char attrs)
 {
     unsigned y;
     int origx;
     int origy;
-    traceent("SetRegionBgAttributes");
+    traceent("drv_disp_set_bg");
 
     traceint(cols);
     traceint(lines);
@@ -520,22 +534,22 @@ void __pascal SetRegionBgAttributes(unsigned cols, unsigned lines, char attrs)
 
     for (y = 0; y <= lines; y++) {
         WriteStringToFramebuffer(NULL, cols, MKBG(attrs), ATTR_BG);
-        MoveCursor(origx, origy + y);
+        drv_disp_set_pos(origx, origy + y);
     }
 
-    MoveCursor(origx, origy);
+    drv_disp_set_pos(origx, origy);
 
     return;
 }
 
-void __pascal ClearRegionForeground(unsigned cols,
-                                    unsigned lines,
-                                    unsigned char attrs)
+void __pascal drv_disp_clear(unsigned cols,
+                             unsigned lines,
+                             unsigned char attrs)
 {
     unsigned y;
     unsigned origx;
     unsigned origy;
-    traceent("ClearRegionForeground");
+    traceent("drv_disp_clear");
 
     traceint(cols);
     traceint(lines);
@@ -550,21 +564,21 @@ void __pascal ClearRegionForeground(unsigned cols,
 
     for (y = 0; y <= lines; y++) {
         WriteStringToFramebuffer(blanks, cols, MKBG(attrs), ATTR_ALL);
-        MoveCursor(origx, origy + y);
+        drv_disp_set_pos(origx, origy + y);
     }
 
-    MoveCursor(origx, origy);
+    drv_disp_set_pos(origx, origy);
 
     return;
 }
 
-void __pascal ClearRegionForegroundKeepBg(unsigned cols, unsigned lines)
+void __pascal drv_disp_fg_clear(unsigned cols, unsigned lines)
 {
     unsigned y;
     unsigned origx;
     unsigned origy;
 
-    traceent("ClearRegionForegroundKeepBg");
+    traceent("drv_disp_fg_clear");
 
     traceint(cols);
     traceint(lines);
@@ -576,14 +590,15 @@ void __pascal ClearRegionForegroundKeepBg(unsigned cols, unsigned lines)
     origy = cury;
     for (y = 0; y <= lines; y++) {
         WriteStringToFramebuffer(blanks, cols, 0000, ATTR_FG);
-        MoveCursor(origx, origy + y);
+        drv_disp_set_pos(origx, origy + y);
     }
 
-    MoveCursor(origx, origy);
+    drv_disp_set_pos(origx, origy);
 
     return;
 }
 
+#ifndef RELEASE
 // Just for debugging purposes, show where a square is on the screen.
 static void DrawSquare(int topx, int topy, int bottomx, int bottomy, char c)
 {
@@ -597,28 +612,29 @@ static void DrawSquare(int topx, int topy, int bottomx, int bottomy, char c)
 
     memset(line, c, sizeof line);
 
-    MoveCursor(topx, topy);
+    drv_disp_set_pos(topx, topy);
     WriteStringToFramebuffer(line, width, 7, ATTR_ALL);
 
-    MoveCursor(topx, bottomy);
+    drv_disp_set_pos(topx, bottomy);
     WriteStringToFramebuffer(line, width, 7, ATTR_ALL);
 
     for (i = 0; i < height; i++) {
-        MoveCursor(topx, topy + i);
+        drv_disp_set_pos(topx, topy + i);
         WriteStringToFramebuffer(line, 1, 7, ATTR_ALL);
-        MoveCursor(topx + width, topy + i);
+        drv_disp_set_pos(topx + width, topy + i);
         WriteStringToFramebuffer(line, 1, 7, ATTR_ALL);
     }
 
     return;
 }
+#endif
 
 // Move a rectangular block from the current cursor, including attributes.
 //
-// The region starts at curx,cury and the size is given by witdh and height.
+// The region starts at curx,cury and the size is given by width and height.
 //
 // The source and destination region might overlap, and we have to handle that.
-void __pascal BlockRegionCopy(int width, int height, int dstx, int dsty)
+void __pascal drv_disp_copy(int width, int height, int dstx, int dsty)
 {
     unsigned char far *srcline;
     unsigned char far *srcattr;
@@ -626,7 +642,7 @@ void __pascal BlockRegionCopy(int width, int height, int dstx, int dsty)
     unsigned char far *dstattr;
     int i;
 
-    traceent("BlockRegionCopy");
+    traceent("drv_disp_copy");
     traceint(width);
     traceint(height);
     traceint(dstx);
@@ -672,16 +688,13 @@ void __pascal BlockRegionCopy(int width, int height, int dstx, int dsty)
         }
     }
 
-    // I can't get this damn thing aligned properly >:(
-    #include "padding.h"
-
     return;
 }
 
-int __pascal CalcSizeTranslatedString(int argstrlen, char far *argstr)
+int __pascal drv_disp_size(int argstrlen, char far *argstr)
 {
     int result;
-    traceent("CalcSizeTranslatedString");
+    traceent("drv_disp_size");
     tracestrlen(argstr, argstrlen);
     traceptr(argstr);
 
@@ -691,12 +704,12 @@ int __pascal CalcSizeTranslatedString(int argstrlen, char far *argstr)
     return result;
 }
 
-int __pascal FitTranslatedString(int strarglen,
-                                 char far *strarg,
-                                 int ncols,
-                                 int far *bytesneeded)
+int __pascal drv_disp_fit(int strarglen,
+                              char far *strarg,
+                              int ncols,
+                              int far *bytesneeded)
 {
-    traceent("FitTranslatedString");
+    traceent("drv_disp_fit");
     traceint(strarglen);
     tracestrlen(strarg, strarglen);
     traceint(ncols);
@@ -710,9 +723,9 @@ int __pascal FitTranslatedString(int strarglen,
     return *bytesneeded = __min(*bytesneeded, ncols);
 }
 
-void __pascal SetCursorInvisible()
+void __pascal drv_disp_curs_off()
 {
-    traceent("SetCursorInvisible");
+    traceent("drv_disp_curs_off");
 
     // https://stanislavs.org/helppc/int_10-1.html
     //
@@ -728,12 +741,12 @@ void __pascal SetCursorInvisible()
     return;
 }
 
-void __pascal SetCursorVisible()
+void __pascal drv_disp_curs_on()
 {
-    traceent("SetCursorVisible");
+    traceent("drv_disp_curs_on");
 
     // First we make sure the "hide cursor" bit isn't set, see the
-    // implementation of SetCursorInvisible() for details.
+    // implementation of drv_disp_curs_off() for details.
     __asm {
         mov ah, 1
         mov ch, 0
@@ -754,102 +767,177 @@ void __pascal SetCursorVisible()
     return;
 }
 
-void __pascal LockCursorAttributes(int unused, int cursmodenum)
+// I'm not sure what I'm supposed to do here.
+void __pascal drv_disp_curs_type(int unused, int cursmodenum)
 {
-    traceent("LockCursorAttributes");
+    traceent("drv_disp_curs_type");
     traceint(unused);
     traceint(cursmodenum);
     return;
 }
 
-int __pascal QQCalledBeforeGraphicsMode(void far *m)
+#if WANT_GRAPH_LABELS && WANT_TEXT_LABELS
+# error you cant have graphical and text labels on graphs, choose one.
+#endif
+
+// Lotus calls this just before it sends bytecode to the rasterizer.
+//
+// The interesting thing is we have an opportunity to parse
+// the bytecode and patch it, which could let us extract labels and
+// paint them directly on graphs instead of trying to rasterize them.
+int __pascal drv_disp_grph_process(struct GRAPH far *graph)
 {
+    void far *entry;
+    void far *exit;
     int result;
-    struct RESDATA r;
+    struct RASTEROPS rops;
 
-    traceent("QQCalledBeforeGraphicsMode");
-    traceptr(m);
-    tracebuf(m, 16);
-    // I don't understand this function, I'm just duplicating
-    // the logic from the real CGA driver.
-    callbacks->MapMemVmr(m, 0);
-    callbacks->LoadVmr(0);
+    traceent("drv_disp_grph_process");
 
-    memcpy(&r, (char far *)(m) + 0x15, sizeof r);
+    traceptr(graph);
+    tracebuf(graph, 64);
 
-    callbacks->field_58(devdatahdl, 0);
-    result = callbacks->field_5C(devdatahdl, &r);
+    callbacks->drv_map_mptr(graph, 0);
+    graph = callbacks->drv_get_vmr(0);
 
-    callbacks->MapMemVmr(m, 0);
-    callbacks->LoadVmr(0);
-    return 0;
+    memcpy(&rops, &graph->rops, sizeof rops);
+
+    traceptr(rops.screeninfo);      // contains fontdata, resolution, etc.
+    traceptr(rops.bytecode);        // Rasterizer bytecode
+    tracebuf(rops.bytecode, 32);
+    traceint(rops.rfield_8);        // Boolean Flag, no ops if zero
+    traceint(rops.rfield_A);        // Some ops do change it (inc or dec), dunno what it is.
+
+    callbacks->set_strip(rasthdl, 0);
+
+    // Record the bytecode entrypoint.
+    entry = rops.bytecode;
+
+    // Run the rasterizer.
+    result = callbacks->raster(rasthdl, &rops);
+
+    traceint(result);
+
+    // Now we know where the bytecode ends.
+    exit = rops.bytecode;
+
+#if WANT_TEXT_LABELS
+    // If bytecode was executed, we can trace through it and locate and
+    // extracts labels. That's useful, because otherwise we have rasterized
+    // labels which dont look good on a terminal because they're tiny little
+    // lines that can't be drawn accurately with libcaca.
+    if (result) {
+        int opcnt = decode_raster_ops(entry, exit);
+        traceint(opcnt);
+    }
+#endif
+
+    callbacks->drv_map_mptr(graph, 0);
+    graph = callbacks->drv_get_vmr(0);
+
+    // Copy the results over.
+    memcpy(&graph->rops, &rops, sizeof rops);
+
+    // Dump the next bytecode instructions.
+    traceptr(rops.bytecode);
+    tracebuf(rops.bytecode, 32);
+
+    return result;
 }
 
-int __pascal QQLotusApiJustCallsFunc_1(int strarglen, void far *strarg)
+int __pascal drv_disp_grph_txt_size(int strarglen, void far *strarg)
 {
-    traceent("QQLotusApiJustCallsFunc_1");
+    int result = 0;
+    traceent("drv_disp_grph_txt_size");
     traceint(strarglen);
     traceptr(strarg);
     tracebuf(strarg, strarglen);
-    return callbacks->field_68(devdatahdl, strarglen, strarg, resdata);
+#if WANT_GRAPH_LABELS
+    result = callbacks->rast_txt_size(rasthdl, strarglen, strarg, curview);
+#elif WANT_TEXT_LABELS
+    // XXX: See the discssion in drv_disp_grph_txt_fit.
+    result = strarglen;
+#endif
+    traceint(result);
+    return result;
 }
 
-void __pascal MoveCursor2(int col, int line)
+void __pascal drv_disp_set_pos_hpu(int col, int line)
 {
-    traceent("MoveCursor2");
-    MoveCursor(col, line);
+    traceent("drv_disp_set_pos_hpu");
+    drv_disp_set_pos(col, line);
     return;
 }
 
-int __pascal IsGraphicsModeReady(void far *ptr)
+int __pascal drv_disp_grph_compute_view(void far *ptr)
 {
     int result;
-    traceent("IsGraphicsModeReady");
+    traceent("drv_disp_grph_compute_view");
     traceptr(ptr);
     tracebuf(ptr, 16);
-    traceint(devdatahdl);
+    traceint(rasthdl);
     traceptr(cv);
-    result = callbacks->field_64(devdatahdl, ptr);
+    result = callbacks->rast_compute_view(rasthdl, ptr);
     traceint(result);
     tracebuf(ptr, 16);
     return true;
 }
 
-int __pascal ComplicatedNop()
+int __pascal drv_disp_unlock()
 {
-    traceent("ComplicatedNop");
+    traceent("drv_disp_unlock");
     return 0;
 }
 
-int __pascal zerosub_0()
+int __pascal drv_disp_lock()
 {
-    traceent("zerosub_0");
+    traceent("drv_disp_lock");
     return 0;
 }
 
-int __pascal LotusApiPassedPtr(void far *ptr)
+int __pascal drv_disp_grph_set_cur_view(void far *view)
 {
-    traceent("LotusApiPassedPtr");
-    traceptr(ptr);
-    resdata = ptr;
+    traceent("drv_disp_grph_set_cur_view");
+    traceptr(view);
+    curview = view;
     return 0;
 }
 
-int __pascal DrawStringAtPosition(int len, char far *str, int c, void far *d)
+int __pascal drv_disp_grph_txt_fit(int len, char far *str, int maxlen, int far *used)
 {
-    traceent("DrawStringAtPosition");
+    int result;
+    traceent("drv_disp_grph_txt_fit");
     traceint(len);
     traceptr(str);
     tracestrlen(str, len);
-    traceval("%#x", c);
-    traceptr(d);
-    tracebuf(d, 32);
-    return callbacks->field_6C(devdatahdl, len, str, c, d, resdata);
+    traceval("%#x", maxlen);
+    traceptr(used);
+
+    result = *used = 0;
+
+#if WANT_GRAPH_LABELS
+    result = callbacks->rast_txt_fit(rasthdl, len, str, maxlen, used, curview);
+#elif WANT_TEXT_LABELS
+    // XXX: I want to tell the rasterizer how much space I need for the text,
+    // but if it's vertical it takes me much more space, because the terminal
+    // aspect ratio is 2:1 (pixels are taller than they are wide).
+    //
+    // I don't know how it wants to draw this, should I use worst or best case?
+    //
+    // I think I should tell it *best* case, and then I can re-do the fit
+    // operation later when I'm parsing the bytecode and know the alignment and
+    // angle. I think this doesn't work yet, but there are raster opcodes like
+    // SetTextAngle and SetTextAlignment, so it seems plausible.
+    result = *used = __min(len, maxlen);
+#endif
+
+    traceint(result);
+    return result;
 }
 
-int __pascal nullsub_5(int a, int b)
+int __pascal drv_disp_sync(int a, int b)
 {
-    traceent("nullsub_5");
+    traceent("drv_disp_sync");
     traceptr(a);
     traceptr(b);
     return 0;
