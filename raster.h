@@ -38,7 +38,7 @@ enum {
     RASTER_OP_NUMOPS,
 };
 
-// The operands to a DRAWTEXT instrution.
+// The operands to a DRAWTEXT instruction.
 struct DRAWTEXT {
     int xpos;
     int ypos;
